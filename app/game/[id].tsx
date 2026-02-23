@@ -545,6 +545,7 @@ export default function GameDetailScreen() {
               className={`flex-1 rounded-xl py-4 items-center ${
                 myLog ? 'bg-surface border border-accent' : 'bg-accent'
               }`}
+              style={!myLog ? { backgroundColor: '#c9a84c' } : undefined}
               onPress={() => setShowLogModal(true)}
               activeOpacity={0.8}
             >
@@ -557,7 +558,7 @@ export default function GameDetailScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className="bg-surface border border-border rounded-xl py-4 px-5 items-center justify-center"
+              className="bg-surface border border-border rounded-xl w-12 py-4 items-center justify-center"
               onPress={() => bookmarkMutation.mutate(isBookmarked)}
               activeOpacity={0.8}
             >
@@ -568,7 +569,7 @@ export default function GameDetailScreen() {
               />
             </TouchableOpacity>
             <TouchableOpacity
-              className="bg-surface border border-border rounded-xl py-4 px-5 items-center justify-center"
+              className="bg-surface border border-border rounded-xl w-12 py-4 items-center justify-center"
               onPress={() => setShowListModal(true)}
               activeOpacity={0.8}
             >
