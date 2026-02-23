@@ -191,6 +191,9 @@ export default function FeedScreen() {
           />
         }
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        maxToRenderPerBatch={10}
+        windowSize={5}
       />
     </View>
   );

@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, Share as RNShare } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Heart, MessageCircle, Share2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -44,7 +44,7 @@ function formatDate(dateStr: string) {
   });
 }
 
-export default function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardProps) {
+function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardProps) {
   const router = useRouter();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
@@ -357,3 +357,5 @@ export default function GameCard({ log, showUser = false, showLoggedBadge = fals
     </GestureDetector>
   );
 }
+
+export default memo(GameCard);

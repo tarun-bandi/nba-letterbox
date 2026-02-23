@@ -408,6 +408,9 @@ export default function SearchScreen() {
               contentContainerStyle={{ paddingBottom: 16 }}
               onScrollBeginDrag={Keyboard.dismiss}
               keyboardShouldPersistTaps="handled"
+              removeClippedSubviews
+              maxToRenderPerBatch={10}
+              windowSize={5}
               refreshControl={
                 <RefreshControl
                   refreshing={gamesQuery.isRefetching && !gamesQuery.isFetchingNextPage}
@@ -487,6 +490,9 @@ export default function SearchScreen() {
           contentContainerStyle={{ paddingBottom: 16 }}
           onScrollBeginDrag={Keyboard.dismiss}
           keyboardShouldPersistTaps="handled"
+          removeClippedSubviews
+          maxToRenderPerBatch={10}
+          windowSize={5}
           refreshControl={
             debouncedQuery.length >= 2 ? (
               <RefreshControl
@@ -554,6 +560,9 @@ export default function SearchScreen() {
           contentContainerStyle={{ paddingBottom: 16 }}
           onScrollBeginDrag={Keyboard.dismiss}
           keyboardShouldPersistTaps="handled"
+          removeClippedSubviews
+          maxToRenderPerBatch={10}
+          windowSize={5}
           refreshControl={
             debouncedQuery.length >= 2 ? (
               <RefreshControl
