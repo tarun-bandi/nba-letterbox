@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Share as RNShare } from 'react-native';
+import { View, Text, TouchableOpacity, Share as RNShare, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState, useCallback, memo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -164,29 +164,25 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
     RNShare.share({ message });
   };
 
-  return (
-    <GestureDetector gesture={composed}>
+  const cardContent = (
+    <>
+      {/* Heart overlay for double-tap */}
       <Animated.View
-        className="bg-surface border border-border rounded-2xl p-4 mb-3"
-        style={{ position: 'relative', overflow: 'hidden' }}
+        style={[
+          heartAnimStyle,
+          {
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            marginTop: -40,
+            marginLeft: -40,
+            zIndex: 10,
+          },
+        ]}
+        pointerEvents="none"
       >
-        {/* Heart overlay for double-tap */}
-        <Animated.View
-          style={[
-            heartAnimStyle,
-            {
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              marginTop: -40,
-              marginLeft: -40,
-              zIndex: 10,
-            },
-          ]}
-          pointerEvents="none"
-        >
-          <Heart size={80} color="#e63946" fill="#e63946" />
-        </Animated.View>
+        <Heart size={80} color="#e63946" fill="#e63946" />
+      </Animated.View>
 
         {/* User info (feed mode) */}
         {showUser && log.user_profile && (
@@ -346,13 +342,36 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
           </Animated.View>
         </View>
 
-        {showComments && (
-          <CommentsSheet
-            logId={log.id}
-            onClose={() => setShowComments(false)}
-            onCommentCountChange={setCommentCount}
-          />
-        )}
+      {showComments && (
+        <CommentsSheet
+          logId={log.id}
+          onClose={() => setShowComments(false)}
+          onCommentCountChange={setCommentCount}
+        />
+      )}
+    </>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <TouchableOpacity
+        className="bg-surface border border-border rounded-2xl p-4 mb-3"
+        style={{ position: 'relative', overflow: 'hidden' }}
+        onPress={() => router.push(`/game/${game.id}`)}
+        activeOpacity={0.8}
+      >
+        {cardContent}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <GestureDetector gesture={composed}>
+      <Animated.View
+        className="bg-surface border border-border rounded-2xl p-4 mb-3"
+        style={{ position: 'relative', overflow: 'hidden' }}
+      >
+        {cardContent}
       </Animated.View>
     </GestureDetector>
   );
