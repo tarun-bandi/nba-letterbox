@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useAuthStore } from '@/lib/store/authStore';
 import Avatar from '@/components/Avatar';
+import PlayerAvatar from '@/components/PlayerAvatar';
 import TeamLogo from '@/components/TeamLogo';
 import TeamGrid from '@/components/TeamGrid';
 import SelectedTeamsBar from '@/components/SelectedTeamsBar';
@@ -430,6 +431,11 @@ export default function SearchScreen() {
               onPress={() => router.push(`/player/${item.id}`)}
               activeOpacity={0.7}
             >
+              <PlayerAvatar
+                headshot_url={item.headshot_url}
+                name={`${item.first_name} ${item.last_name}`}
+                size={40}
+              />
               <View className="flex-1">
                 <Text className="text-white font-semibold text-base">
                   {item.first_name} {item.last_name}

@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import TeamLogo from '@/components/TeamLogo';
+import PlayerAvatar from '@/components/PlayerAvatar';
 import ErrorState from '@/components/ErrorState';
 import { Skeleton } from '@/components/Skeleton';
 import type { Player, Team, BoxScore, GameWithTeams } from '@/types/database';
@@ -212,6 +213,12 @@ export default function PlayerDetailScreen() {
       {/* Header */}
       <View className="bg-surface border-b border-border mx-4 mt-4 rounded-2xl p-6">
         <View className="flex-row justify-between items-start">
+          <View className="flex-row items-start gap-4 flex-1">
+            <PlayerAvatar
+              headshot_url={player.headshot_url}
+              name={`${player.first_name} ${player.last_name}`}
+              size={64}
+            />
           <View className="flex-1">
             <Text className="text-white text-2xl font-bold">
               {player.first_name} {player.last_name}
@@ -234,6 +241,7 @@ export default function PlayerDetailScreen() {
                 </Text>
               </View>
             )}
+          </View>
           </View>
           <TouchableOpacity
             className="p-2"

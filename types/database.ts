@@ -108,6 +108,7 @@ export interface Database {
           draft_year: number | null;
           draft_round: number | null;
           draft_number: number | null;
+          headshot_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -127,11 +128,13 @@ export interface Database {
           draft_year?: number | null;
           draft_round?: number | null;
           draft_number?: number | null;
+          headshot_url?: string | null;
         };
         Update: {
           position?: string | null;
           jersey_number?: string | null;
           team_id?: string | null;
+          headshot_url?: string | null;
           updated_at?: string;
         };
       };
