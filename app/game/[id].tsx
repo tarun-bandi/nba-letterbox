@@ -312,20 +312,22 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
       {/* Team toggle */}
       <View className="flex-row bg-surface rounded-xl mb-3 p-1 self-start">
         <TouchableOpacity
-          className={`py-2.5 px-6 rounded-lg items-center ${isAwayActive ? 'bg-border' : ''}`}
+          className={`py-2.5 px-6 rounded-lg items-center ${isAwayActive ? 'bg-accent' : ''}`}
+          style={isAwayActive ? { backgroundColor: '#c9a84c' } : undefined}
           onPress={() => setActiveTeamId(game.away_team_id)}
           activeOpacity={0.7}
         >
-          <Text className={`font-semibold text-sm ${isAwayActive ? 'text-white' : 'text-muted'}`}>
+          <Text className={`font-bold text-sm ${isAwayActive ? 'text-background' : 'text-muted'}`}>
             {game.away_team.abbreviation}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          className={`py-2.5 px-6 rounded-lg items-center ${!isAwayActive ? 'bg-border' : ''}`}
+          className={`py-2.5 px-6 rounded-lg items-center ${!isAwayActive ? 'bg-accent' : ''}`}
+          style={!isAwayActive ? { backgroundColor: '#c9a84c' } : undefined}
           onPress={() => setActiveTeamId(game.home_team_id)}
           activeOpacity={0.7}
         >
-          <Text className={`font-semibold text-sm ${!isAwayActive ? 'text-white' : 'text-muted'}`}>
+          <Text className={`font-bold text-sm ${!isAwayActive ? 'text-background' : 'text-muted'}`}>
             {game.home_team.abbreviation}
           </Text>
         </TouchableOpacity>
