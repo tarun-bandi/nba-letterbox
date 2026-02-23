@@ -81,33 +81,38 @@ export default function LogModal({
     });
   }
 
+  async function performDelete() {
+    if (!existingLog) return;
+    setDeleting(true);
+    const { error } = await supabase
+      .from('game_logs')
+      .delete()
+      .eq('id', existingLog.id);
+    setDeleting(false);
+    if (error) {
+      toast.show(error.message, 'error');
+    } else {
+      toast.show('Log deleted');
+      onSuccess();
+    }
+  }
+
   function handleDelete() {
     if (!existingLog) return;
-    Alert.alert(
-      'Delete Log',
-      'Are you sure you want to delete this log? This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            const { error } = await supabase
-              .from('game_logs')
-              .delete()
-              .eq('id', existingLog.id);
-            setDeleting(false);
-            if (error) {
-              toast.show(error.message, 'error');
-            } else {
-              toast.show('Log deleted');
-              onSuccess();
-            }
-          },
-        },
-      ],
-    );
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to delete this log? This cannot be undone.')) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Log',
+        'Are you sure you want to delete this log? This cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: performDelete },
+        ],
+      );
+    }
   }
 
   async function handleSave() {
