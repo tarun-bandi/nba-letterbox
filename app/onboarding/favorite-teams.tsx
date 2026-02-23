@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -11,29 +11,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
+import { useTeams } from '@/hooks/useTeams';
 import TeamLogo from '@/components/TeamLogo';
-import type { Team } from '@/types/database';
 
 export default function OnboardingFavoriteTeams() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, setOnboardingCompleted } = useAuthStore();
-  const [teams, setTeams] = useState<Team[]>([]);
+  const { data: teams = [], isLoading: loading } = useTeams();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    supabase
-      .from('teams')
-      .select('*')
-      .in('conference', ['East', 'West'])
-      .order('full_name', { ascending: true })
-      .then(({ data, error }) => {
-        if (!error && data) setTeams(data as Team[]);
-        setLoading(false);
-      });
-  }, []);
 
   function toggleTeam(teamId: string) {
     setSelected((prev) => {

@@ -18,7 +18,9 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useAuthStore } from '@/lib/store/authStore';
 import Avatar from '@/components/Avatar';
 import TeamLogo from '@/components/TeamLogo';
-import PlayoffBadge from '@/components/PlayoffBadge';
+import TeamGrid from '@/components/TeamGrid';
+import SelectedTeamsBar from '@/components/SelectedTeamsBar';
+import SearchGameCard from '@/components/SearchGameCard';
 import type { GameWithTeams, Season, UserProfile, Player, Team } from '@/types/database';
 
 const PAGE_SIZE = 20;
@@ -70,117 +72,53 @@ interface GamesPage {
   loggedGameIds: string[];
 }
 
-function parseMatchupQuery(raw: string): { away: string; home: string } | null {
-  const m = raw.match(/^\s*(.+?)\s+(?:@|vs\.?|v)\s+(.+?)\s*$/i);
-  if (!m) return null;
-  return { away: m[1].trim(), home: m[2].trim() };
-}
-
-async function searchGamesPage(
-  query: string,
+async function searchGamesByTeam(
+  teamId1: string,
+  teamId2: string | null,
   seasonId: string | null,
   offset: number,
   userId: string | null,
 ): Promise<GamesPage> {
-  const matchup = parseMatchupQuery(query);
+  let gamesQuery = supabase
+    .from('games')
+    .select(`
+      *,
+      home_team:teams!games_home_team_id_fkey (*),
+      away_team:teams!games_away_team_id_fkey (*),
+      season:seasons (*)
+    `)
+    .neq('status', 'scheduled')
+    .order('game_date_utc', { ascending: false })
+    .range(offset, offset + PAGE_SIZE - 1);
 
-  let games: GameWithTeams[];
-
-  if (matchup) {
-    // Matchup search: find teams for each side in parallel
-    const [awayRes, homeRes] = await Promise.all([
-      supabase
-        .from('teams')
-        .select('id')
-        .in('conference', ['East', 'West'])
-        .or(
-          `abbreviation.ilike.%${matchup.away}%,name.ilike.%${matchup.away}%,city.ilike.%${matchup.away}%,full_name.ilike.%${matchup.away}%`
-        ),
-      supabase
-        .from('teams')
-        .select('id')
-        .in('conference', ['East', 'West'])
-        .or(
-          `abbreviation.ilike.%${matchup.home}%,name.ilike.%${matchup.home}%,city.ilike.%${matchup.home}%,full_name.ilike.%${matchup.home}%`
-        ),
-    ]);
-    if (awayRes.error) throw awayRes.error;
-    if (homeRes.error) throw homeRes.error;
-    if (!awayRes.data?.length || !homeRes.data?.length)
-      return { games: [], nextOffset: null, loggedGameIds: [] };
-
-    const awayIds = awayRes.data.map((t) => t.id);
-    const homeIds = homeRes.data.map((t) => t.id);
-    const allIds = [...new Set([...awayIds, ...homeIds])];
-
-    // Fetch games involving any of these teams
-    let gamesQuery = supabase
-      .from('games')
-      .select(`
-        *,
-        home_team:teams!games_home_team_id_fkey (*),
-        away_team:teams!games_away_team_id_fkey (*),
-        season:seasons (*)
-      `)
-      .or(`home_team_id.in.(${allIds.join(',')}),away_team_id.in.(${allIds.join(',')})`)
-      .neq('status', 'scheduled')
-      .order('game_date_utc', { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1);
-
-    if (seasonId) {
-      gamesQuery = gamesQuery.eq('season_id', seasonId);
-    }
-
-    const { data, error } = await gamesQuery;
-    if (error) throw error;
-
-    // Client-side filter: both teams must be in the game
-    const awaySet = new Set(awayIds);
-    const homeSet = new Set(homeIds);
-    games = ((data ?? []) as unknown as GameWithTeams[]).filter((g) => {
-      const hasAway = awaySet.has(g.away_team_id) || awaySet.has(g.home_team_id);
-      const hasHome = homeSet.has(g.away_team_id) || homeSet.has(g.home_team_id);
-      return hasAway && hasHome;
-    });
+  if (teamId2) {
+    // Matchup: both teams must be in the game (either side)
+    gamesQuery = gamesQuery
+      .or(`home_team_id.eq.${teamId1},away_team_id.eq.${teamId1}`)
+      .or(`home_team_id.eq.${teamId2},away_team_id.eq.${teamId2}`);
   } else {
-    // Single-team search
-    const { data: teams, error: teamsError } = await supabase
-      .from('teams')
-      .select('id')
-      .in('conference', ['East', 'West'])
-      .or(
-        `abbreviation.ilike.%${query}%,name.ilike.%${query}%,city.ilike.%${query}%,full_name.ilike.%${query}%`
-      );
-
-    if (teamsError) throw teamsError;
-    if (!teams || teams.length === 0) return { games: [], nextOffset: null, loggedGameIds: [] };
-
-    const teamIds = teams.map((t) => t.id);
-
-    let gamesQuery = supabase
-      .from('games')
-      .select(`
-        *,
-        home_team:teams!games_home_team_id_fkey (*),
-        away_team:teams!games_away_team_id_fkey (*),
-        season:seasons (*)
-      `)
-      .or(`home_team_id.in.(${teamIds.join(',')}),away_team_id.in.(${teamIds.join(',')})`)
-      .neq('status', 'scheduled')
-      .order('game_date_utc', { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1);
-
-    if (seasonId) {
-      gamesQuery = gamesQuery.eq('season_id', seasonId);
-    }
-
-    const { data, error } = await gamesQuery;
-    if (error) throw error;
-
-    games = (data ?? []) as unknown as GameWithTeams[];
+    // Single team
+    gamesQuery = gamesQuery
+      .or(`home_team_id.eq.${teamId1},away_team_id.eq.${teamId1}`);
   }
 
-  // Check which games the user has already logged
+  if (seasonId) {
+    gamesQuery = gamesQuery.eq('season_id', seasonId);
+  }
+
+  const { data, error } = await gamesQuery;
+  if (error) throw error;
+
+  let games = (data ?? []) as unknown as GameWithTeams[];
+
+  // For matchup, client-side verify both teams are present (supabase .or() across two calls is additive)
+  if (teamId2) {
+    games = games.filter((g) => {
+      const teams = [g.home_team_id, g.away_team_id];
+      return teams.includes(teamId1) && teams.includes(teamId2);
+    });
+  }
+
   let loggedGameIds: string[] = [];
   if (userId && games.length > 0) {
     const gameIds = games.map((g) => g.id);
@@ -224,14 +162,6 @@ async function searchUsersPage(
   };
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
 function formatSeasonLabel(year: number): string {
   const nextYear = (year + 1) % 100;
   return `${year}-${nextYear.toString().padStart(2, '0')}`;
@@ -243,7 +173,16 @@ export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('games');
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [selectedTeam1, setSelectedTeam1] = useState<Team | null>(null);
+  const [selectedTeam2, setSelectedTeam2] = useState<Team | null>(null);
+  const [pickingOpponent, setPickingOpponent] = useState(false);
   const debouncedQuery = useDebounce(query, 350);
+
+  const searchPhase = selectedTeam2
+    ? 'matchup'
+    : selectedTeam1
+    ? 'team_selected'
+    : 'idle';
 
   const { data: seasons } = useQuery({
     queryKey: ['seasons'],
@@ -251,12 +190,18 @@ export default function SearchScreen() {
   });
 
   const gamesQuery = useInfiniteQuery({
-    queryKey: ['games-search', debouncedQuery, selectedSeasonId],
+    queryKey: ['games-search', selectedTeam1?.id, selectedTeam2?.id, selectedSeasonId],
     queryFn: ({ pageParam = 0 }) =>
-      searchGamesPage(debouncedQuery, selectedSeasonId, pageParam, user?.id ?? null),
+      searchGamesByTeam(
+        selectedTeam1!.id,
+        selectedTeam2?.id ?? null,
+        selectedSeasonId,
+        pageParam,
+        user?.id ?? null,
+      ),
     getNextPageParam: (lastPage) => lastPage.nextOffset,
     initialPageParam: 0,
-    enabled: searchMode === 'games' && debouncedQuery.trim().length >= 2,
+    enabled: searchMode === 'games' && selectedTeam1 != null,
   });
 
   const usersQuery = useInfiniteQuery({
@@ -279,16 +224,37 @@ export default function SearchScreen() {
   const loggedGameIds = new Set(gamesQuery.data?.pages.flatMap((p) => p.loggedGameIds) ?? []);
   const allUsers = usersQuery.data?.pages.flatMap((p) => p.users) ?? [];
   const allPlayers = playersQuery.data?.pages.flatMap((p) => p.players) ?? [];
-  const isLoading = searchMode === 'games'
-    ? gamesQuery.isLoading
-    : searchMode === 'users'
-    ? usersQuery.isLoading
-    : playersQuery.isLoading;
-  const isFetchingNext = searchMode === 'games'
-    ? gamesQuery.isFetchingNextPage
-    : searchMode === 'users'
-    ? usersQuery.isFetchingNextPage
-    : playersQuery.isFetchingNextPage;
+
+  function handleSelectTeam(team: Team) {
+    if (pickingOpponent) {
+      setSelectedTeam2(team);
+      setPickingOpponent(false);
+      setQuery('');
+    } else {
+      setSelectedTeam1(team);
+      setQuery('');
+    }
+  }
+
+  function handleClearTeam1() {
+    setSelectedTeam1(null);
+    setSelectedTeam2(null);
+    setPickingOpponent(false);
+  }
+
+  function handleClearTeam2() {
+    setSelectedTeam2(null);
+  }
+
+  function handlePickOpponent() {
+    setPickingOpponent(true);
+    setQuery('');
+  }
+
+  const showGrid =
+    searchMode === 'games' && (searchPhase === 'idle' || pickingOpponent);
+  const showGamesResults =
+    searchMode === 'games' && searchPhase !== 'idle' && !pickingOpponent;
 
   return (
     <View className="flex-1 bg-background">
@@ -300,7 +266,11 @@ export default function SearchScreen() {
             className="flex-1 py-3.5 text-white text-base"
             placeholder={
               searchMode === 'games'
-                ? 'Search games (e.g. LAL, MIA @ BOS)'
+                ? pickingOpponent
+                  ? 'Filter opponent...'
+                  : searchPhase === 'idle'
+                  ? 'Filter teams...'
+                  : 'Search games...'
                 : searchMode === 'users'
                 ? 'Search users by name or handle'
                 : 'Search players by name'
@@ -320,7 +290,14 @@ export default function SearchScreen() {
         {(['games', 'users', 'players'] as const).map((mode) => (
           <TouchableOpacity
             key={mode}
-            onPress={() => setSearchMode(mode)}
+            onPress={() => {
+              setSearchMode(mode);
+              if (mode !== 'games') {
+                setSelectedTeam1(null);
+                setSelectedTeam2(null);
+                setPickingOpponent(false);
+              }
+            }}
             className={`px-4 py-1.5 rounded-full border ${
               searchMode === mode
                 ? 'bg-accent border-accent'
@@ -338,59 +315,124 @@ export default function SearchScreen() {
         ))}
       </View>
 
-      {/* Season filter pills (games mode only) */}
-      {searchMode === 'games' && seasons && seasons.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="px-4 pb-2"
-          contentContainerStyle={{ gap: 6, alignItems: 'center' }}
-          style={{ flexGrow: 0 }}
-        >
-          <TouchableOpacity
-            onPress={() => setSelectedSeasonId(null)}
-            className={`px-3 py-1.5 rounded-full border ${
-              selectedSeasonId === null
-                ? 'bg-accent border-accent'
-                : 'bg-background border-border'
-            }`}
-          >
-            <Text
-              className={`text-sm font-medium ${
-                selectedSeasonId === null ? 'text-background' : 'text-muted'
-              }`}
-            >
-              All
-            </Text>
-          </TouchableOpacity>
-          {seasons.map((season) => (
-            <TouchableOpacity
-              key={season.id}
-              onPress={() => setSelectedSeasonId(season.id)}
-              className={`px-3 py-1.5 rounded-full border ${
-                selectedSeasonId === season.id
-                  ? 'bg-accent border-accent'
-                  : 'bg-background border-border'
-              }`}
-            >
-              <Text
-                className={`text-sm font-medium ${
-                  selectedSeasonId === season.id ? 'text-background' : 'text-muted'
-                }`}
-              >
-                {formatSeasonLabel(season.year)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+      {/* Games mode: Team grid (idle or picking opponent) */}
+      {showGrid && (
+        <TeamGrid
+          query={query}
+          onSelectTeam={handleSelectTeam}
+          excludeTeamId={pickingOpponent ? selectedTeam1?.id : undefined}
+        />
       )}
 
-      {/* Results */}
-      {isLoading && debouncedQuery.length >= 2 ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#c9a84c" />
-        </View>
-      ) : searchMode === 'players' ? (
+      {/* Games mode: Results */}
+      {showGamesResults && (
+        <>
+          <SelectedTeamsBar
+            team1={selectedTeam1!}
+            team2={selectedTeam2}
+            onClearTeam1={handleClearTeam1}
+            onClearTeam2={handleClearTeam2}
+            onPickOpponent={handlePickOpponent}
+          />
+
+          {/* Season filter pills */}
+          {seasons && seasons.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="px-4 pb-2"
+              contentContainerStyle={{ gap: 6, alignItems: 'center' }}
+              style={{ flexGrow: 0 }}
+            >
+              <TouchableOpacity
+                onPress={() => setSelectedSeasonId(null)}
+                className={`px-3 py-1.5 rounded-full border ${
+                  selectedSeasonId === null
+                    ? 'bg-accent border-accent'
+                    : 'bg-background border-border'
+                }`}
+              >
+                <Text
+                  className={`text-sm font-medium ${
+                    selectedSeasonId === null ? 'text-background' : 'text-muted'
+                  }`}
+                >
+                  All
+                </Text>
+              </TouchableOpacity>
+              {seasons.map((season) => (
+                <TouchableOpacity
+                  key={season.id}
+                  onPress={() => setSelectedSeasonId(season.id)}
+                  className={`px-3 py-1.5 rounded-full border ${
+                    selectedSeasonId === season.id
+                      ? 'bg-accent border-accent'
+                      : 'bg-background border-border'
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-medium ${
+                      selectedSeasonId === season.id ? 'text-background' : 'text-muted'
+                    }`}
+                  >
+                    {formatSeasonLabel(season.year)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          {gamesQuery.isLoading ? (
+            <View className="flex-1 items-center justify-center">
+              <ActivityIndicator color="#c9a84c" />
+            </View>
+          ) : (
+            <FlatList
+              data={allGames}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <SearchGameCard
+                  game={item}
+                  isLogged={loggedGameIds.has(item.id)}
+                  onPress={() => router.push(`/game/${item.id}`)}
+                />
+              )}
+              ListEmptyComponent={
+                <View className="flex-1 items-center justify-center pt-16">
+                  <Text className="text-muted">No games found</Text>
+                </View>
+              }
+              ListFooterComponent={
+                gamesQuery.isFetchingNextPage ? (
+                  <View className="py-4">
+                    <ActivityIndicator color="#c9a84c" />
+                  </View>
+                ) : null
+              }
+              onEndReached={() => {
+                if (gamesQuery.hasNextPage && !gamesQuery.isFetchingNextPage) {
+                  gamesQuery.fetchNextPage();
+                }
+              }}
+              onEndReachedThreshold={0.5}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 16 }}
+              onScrollBeginDrag={Keyboard.dismiss}
+              keyboardShouldPersistTaps="handled"
+              refreshControl={
+                <RefreshControl
+                  refreshing={gamesQuery.isRefetching && !gamesQuery.isFetchingNextPage}
+                  onRefresh={() => gamesQuery.refetch()}
+                  tintColor="#c9a84c"
+                />
+              }
+            />
+          )}
+        </>
+      )}
+
+      {/* Players mode */}
+      {searchMode === 'players' && (
         <FlatList
           data={allPlayers}
           keyExtractor={(item) => item.id}
@@ -423,12 +465,10 @@ export default function SearchScreen() {
           ListEmptyComponent={
             debouncedQuery.length >= 2 ? (
               <View className="flex-1 items-center justify-center pt-16">
-                <Text style={{ fontSize: 48 }} className="mb-3">{'\u{1F3C0}'}</Text>
                 <Text className="text-muted">No players found for "{debouncedQuery}"</Text>
               </View>
             ) : (
               <View className="flex-1 items-center justify-center pt-16 px-6">
-                <Text style={{ fontSize: 48 }} className="mb-3">{'\u{1F3C0}'}</Text>
                 <Text className="text-white text-lg font-semibold mb-2">Find players</Text>
                 <Text className="text-muted text-center">
                   Search for NBA players by name
@@ -437,7 +477,7 @@ export default function SearchScreen() {
             )
           }
           ListFooterComponent={
-            isFetchingNext ? (
+            playersQuery.isFetchingNextPage ? (
               <View className="py-4">
                 <ActivityIndicator color="#c9a84c" />
               </View>
@@ -463,96 +503,10 @@ export default function SearchScreen() {
             ) : undefined
           }
         />
-      ) : searchMode === 'games' ? (
-        <FlatList
-          data={allGames}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              className="mx-4 my-1 bg-surface border border-border rounded-xl p-4"
-              onPress={() => router.push(`/game/${item.id}`)}
-              activeOpacity={0.7}
-            >
-              <View className="flex-row justify-between items-center">
-                <View className="flex-row items-center gap-2">
-                  <TeamLogo abbreviation={item.away_team.abbreviation} size={24} />
-                  <Text className="text-white font-semibold text-base">
-                    {item.away_team.abbreviation}
-                  </Text>
-                  <Text className="text-muted font-semibold text-base">@</Text>
-                  <TeamLogo abbreviation={item.home_team.abbreviation} size={24} />
-                  <Text className="text-white font-semibold text-base">
-                    {item.home_team.abbreviation}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-2">
-                  {item.playoff_round && <PlayoffBadge round={item.playoff_round} />}
-                  {loggedGameIds.has(item.id) && (
-                    <View className="bg-accent/20 border border-accent/40 rounded-full px-2 py-0.5">
-                      <Text className="text-accent text-xs font-medium">Logged ✓</Text>
-                    </View>
-                  )}
-                  <Text className="text-muted text-sm">
-                    {item.home_team_score !== null
-                      ? `${item.away_team_score}–${item.home_team_score}`
-                      : item.status}
-                  </Text>
-                </View>
-              </View>
-              <View className="flex-row justify-between mt-1">
-                <Text className="text-muted text-sm">
-                  {item.away_team.full_name} vs {item.home_team.full_name}
-                </Text>
-                <Text className="text-muted text-sm">
-                  {formatDate(item.game_date_utc)}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            debouncedQuery.length >= 2 ? (
-              <View className="flex-1 items-center justify-center pt-16">
-                <Text style={{ fontSize: 48 }} className="mb-3">🔍</Text>
-                <Text className="text-muted">No games found for "{debouncedQuery}"</Text>
-              </View>
-            ) : (
-              <View className="flex-1 items-center justify-center pt-16 px-6">
-                <Text style={{ fontSize: 48 }} className="mb-3">🏟️</Text>
-                <Text className="text-white text-lg font-semibold mb-2">Search for games</Text>
-                <Text className="text-muted text-center">
-                  Search by team abbreviation or city (e.g. LAL, Warriors, Boston)
-                </Text>
-              </View>
-            )
-          }
-          ListFooterComponent={
-            isFetchingNext ? (
-              <View className="py-4">
-                <ActivityIndicator color="#c9a84c" />
-              </View>
-            ) : null
-          }
-          onEndReached={() => {
-            if (gamesQuery.hasNextPage && !gamesQuery.isFetchingNextPage) {
-              gamesQuery.fetchNextPage();
-            }
-          }}
-          onEndReachedThreshold={0.5}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 16 }}
-          onScrollBeginDrag={Keyboard.dismiss}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            debouncedQuery.length >= 2 ? (
-              <RefreshControl
-                refreshing={gamesQuery.isRefetching && !gamesQuery.isFetchingNextPage}
-                onRefresh={() => gamesQuery.refetch()}
-                tintColor="#c9a84c"
-              />
-            ) : undefined
-          }
-        />
-      ) : (
+      )}
+
+      {/* Users mode */}
+      {searchMode === 'users' && (
         <FlatList
           data={allUsers}
           keyExtractor={(item) => item.user_id}
@@ -578,12 +532,10 @@ export default function SearchScreen() {
           ListEmptyComponent={
             debouncedQuery.length >= 2 ? (
               <View className="flex-1 items-center justify-center pt-16">
-                <Text style={{ fontSize: 48 }} className="mb-3">👤</Text>
                 <Text className="text-muted">No users found for "{debouncedQuery}"</Text>
               </View>
             ) : (
               <View className="flex-1 items-center justify-center pt-16 px-6">
-                <Text style={{ fontSize: 48 }} className="mb-3">👤</Text>
                 <Text className="text-white text-lg font-semibold mb-2">Find people</Text>
                 <Text className="text-muted text-center">
                   Search for users by display name or handle
@@ -592,7 +544,7 @@ export default function SearchScreen() {
             )
           }
           ListFooterComponent={
-            isFetchingNext ? (
+            usersQuery.isFetchingNextPage ? (
               <View className="py-4">
                 <ActivityIndicator color="#c9a84c" />
               </View>
