@@ -1,3 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Smooth scrolling on mobile web */
+@media (pointer: coarse) {
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html, body, #root {
+    overscroll-behavior-y: none;
+    overflow-y: auto;
+  }
+}
+
+/* Prevent layout thrashing from scroll-linked effects */
+[data-testid="flatlist"],
+[role="list"] {
+  will-change: transform;
+  contain: layout style;
+}
