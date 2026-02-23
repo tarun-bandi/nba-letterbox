@@ -87,7 +87,7 @@ async function searchGamesByTeam(
       away_team:teams!games_away_team_id_fkey (*),
       season:seasons (*)
     `)
-    .neq('status', 'scheduled')
+    .eq('status', 'final')
     .order('game_date_utc', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
 
