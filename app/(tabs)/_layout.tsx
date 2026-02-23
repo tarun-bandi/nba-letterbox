@@ -1,7 +1,10 @@
-import { Tabs } from 'expo-router';
-import { Home, Search, User } from 'lucide-react-native';
+import { TouchableOpacity } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { Home, Compass, Search, User, Bell } from 'lucide-react-native';
 
 export default function TabsLayout() {
+  const router = useRouter();
+
   return (
     <Tabs
       screenOptions={{
@@ -23,6 +26,24 @@ export default function TabsLayout() {
           title: 'Feed',
           tabBarIcon: ({ color, size }) => (
             <Home color={color} size={size} />
+          ),
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => router.push('/notifications')}
+              style={{ marginRight: 16 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Bell size={22} color="#6b7280" />
+            </TouchableOpacity>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="discover"
+        options={{
+          title: 'Discover',
+          tabBarIcon: ({ color, size }) => (
+            <Compass color={color} size={size} />
           ),
         }}
       />

@@ -1,12 +1,13 @@
 /**
  * NBA Letterbox — BallDontLie ingestion script
  *
- * Usage: npm run seed
- * Requires: .env with SUPABASE_SERVICE_ROLE_KEY, EXPO_PUBLIC_SUPABASE_URL, BALLDONTLIE_API_KEY
+ * Usage:
+ *   npm run seed                     # teams + default (2024) season
+ *   npm run seed -- --season 2025    # teams + 2025-26 season
+ *   npm run seed:games -- --season 2025   # games only (skip teams), for daily cron
+ *   npm run seed:games -- --season 2025 --days 3   # only games from last 3 days
  *
- * What it does:
- * 1. Upserts all 30 NBA teams
- * 2. Upserts all 2024 regular-season games (paginated)
+ * Requires: .env with SUPABASE_SERVICE_ROLE_KEY, EXPO_PUBLIC_SUPABASE_URL, BALLDONTLIE_API_KEY
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -37,6 +38,31 @@ const BDL_HEADERS = {
   'Content-Type': 'application/json',
 };
 
+// ─── CLI Args ───────────────────────────────────────────────────────────────
+
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let season = 2024;
+  let gamesOnly = false;
+  let days: number | null = null;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--season' && args[i + 1]) {
+      season = parseInt(args[i + 1], 10);
+      i++;
+    } else if (args[i] === '--games-only') {
+      gamesOnly = true;
+    } else if (args[i] === '--days' && args[i + 1]) {
+      days = parseInt(args[i + 1], 10);
+      i++;
+    }
+  }
+
+  return { season, gamesOnly, days };
+}
+
+const cliArgs = parseArgs();
+
 // Maps BDL team ID → internal UUID
 const teamIdMap = new Map<number, string>();
 
@@ -45,13 +71,22 @@ const seasonIdMap = new Map<number, string>();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function bdlGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${BDL_BASE}${path}`, { headers: BDL_HEADERS });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`BDL ${path} → ${res.status}: ${text}`);
+async function bdlGet<T>(path: string, retries = 8): Promise<T> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const res = await fetch(`${BDL_BASE}${path}`, { headers: BDL_HEADERS });
+    if (res.status === 429) {
+      const wait = attempt * 15000; // 15s, 30s, 45s, 60s, etc.
+      console.log(`  ⏳ Rate limited, waiting ${wait / 1000}s (attempt ${attempt}/${retries})…`);
+      await sleep(wait);
+      continue;
+    }
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`BDL ${path} → ${res.status}: ${text}`);
+    }
+    return res.json() as Promise<T>;
   }
-  return res.json() as Promise<T>;
+  throw new Error(`BDL ${path} → 429: Still rate limited after ${retries} retries`);
 }
 
 function sleep(ms: number) {
@@ -155,8 +190,19 @@ function mapStatus(status: string): 'scheduled' | 'live' | 'final' {
   return 'scheduled';
 }
 
-async function seedGames(season: number) {
-  console.log(`🎮 Fetching 2024 season games (BDL season=${season})…`);
+async function seedGames(season: number, days: number | null = null) {
+  let dateRange = '';
+  if (days !== null) {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
+    dateRange = `&start_date=${startStr}&end_date=${endStr}`;
+    console.log(`🎮 Fetching games for season ${season} from ${startStr} to ${endStr}…`);
+  } else {
+    console.log(`🎮 Fetching all games for season ${season}…`);
+  }
 
   let cursor: number | undefined;
   let totalInserted = 0;
@@ -164,7 +210,7 @@ async function seedGames(season: number) {
 
   while (true) {
     const cursorParam = cursor ? `&cursor=${cursor}` : '';
-    const url = `/games?seasons[]=${season}&per_page=100${cursorParam}`;
+    const url = `/games?seasons[]=${season}&per_page=100${cursorParam}${dateRange}`;
 
     const response = await bdlGet<BdlGamesResponse>(url);
     const { data: bdlGames, meta } = response;
@@ -213,26 +259,60 @@ async function seedGames(season: number) {
       totalInserted += rows.length;
     }
 
-    console.log(`  Page ${page}: inserted/updated ${rows.length} games`);
+    // ~1300 games in a season → ~13 pages of 100
+    const estTotal = 1300;
+    const pct = Math.min(100, Math.round((totalInserted / estTotal) * 100));
+    const filled = Math.round(pct / 5);
+    const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
+    process.stdout.write(`\r  [${bar}] ${pct}% — ${totalInserted} games (page ${page})`);
 
     if (!meta.next_cursor) break;
     cursor = meta.next_cursor;
     page++;
 
-    // Respect BDL rate limits
-    await sleep(300);
+    // Respect BDL rate limits — free tier is ~5 req/min
+    await sleep(3000);
   }
 
+  console.log(''); // newline after progress bar
   console.log(`✅ Upserted ${totalInserted} games for season ${season}`);
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
+async function loadTeamMap() {
+  const { data, error } = await supabase
+    .from('teams')
+    .select('id, provider_team_id')
+    .returns<{ id: string; provider_team_id: number }[]>();
+
+  if (error) {
+    console.error('❌ Failed to load team map:', error.message);
+    process.exit(1);
+  }
+
+  for (const row of data ?? []) {
+    teamIdMap.set(row.provider_team_id, row.id);
+  }
+}
+
 async function main() {
+  const { season, gamesOnly, days } = cliArgs;
   console.log('🚀 NBA Letterbox seed script starting…\n');
 
-  await seedTeams();
-  await seedGames(2024);
+  if (gamesOnly) {
+    // Skip team ingestion — just load existing team ID mapping from DB
+    await loadTeamMap();
+    if (teamIdMap.size === 0) {
+      console.error('❌ No teams found in DB. Run full seed first (without --games-only).');
+      process.exit(1);
+    }
+    console.log(`✅ Loaded ${teamIdMap.size} teams from DB`);
+  } else {
+    await seedTeams();
+  }
+
+  await seedGames(season, days);
 
   console.log('\n🎉 Seed complete!');
 }

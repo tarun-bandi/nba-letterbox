@@ -1,4 +1,5 @@
-import { View, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 const GOLD = '#c9a84c';
 const EMPTY = '#2a2a2a';
@@ -12,48 +13,53 @@ interface StarRatingProps {
   readonly?: boolean;
 }
 
-function StarIcon({
+function StarGlyph({
   fill,
   size,
 }: {
   fill: 'full' | 'half' | 'empty';
   size: number;
 }) {
-  // SVG-like rendering via View borders
-  // We use a simple visual: full filled, half (left only), empty
+  const fontSize = size * 0.95;
+
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 2,
-        overflow: 'hidden',
-        position: 'relative',
-      }}
-    >
-      {/* Background (empty) */}
-      <View
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Gray base star */}
+      <Text
         style={{
+          fontSize,
+          lineHeight: size,
+          color: EMPTY,
           position: 'absolute',
-          width: size,
-          height: size,
-          backgroundColor: EMPTY,
-          borderRadius: 2,
         }}
-      />
-      {/* Fill */}
+      >
+        ★
+      </Text>
+      {/* Gold fill star (full or left-half clipped) */}
       {fill !== 'empty' && (
         <View
           style={{
             position: 'absolute',
             width: fill === 'half' ? size / 2 : size,
             height: size,
-            backgroundColor: GOLD,
-            borderRadius: 2,
+            overflow: 'hidden',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
-        />
+        >
+          <Text
+            style={{
+              fontSize,
+              lineHeight: size,
+              color: GOLD,
+              width: size,
+              textAlign: 'center',
+            }}
+          >
+            ★
+          </Text>
+        </View>
       )}
-      {/* Star shape overlay using text ★ */}
     </View>
   );
 }
@@ -72,7 +78,11 @@ export default function StarRating({
   }) as Array<'full' | 'half' | 'empty'>;
 
   return (
-    <View style={{ flexDirection: 'row', gap: 4 }}>
+    <View
+      style={{ flexDirection: 'row', gap: 4 }}
+      accessibilityLabel={`Rating: ${value} out of 5 stars`}
+      accessibilityRole={readonly ? 'text' : 'adjustable'}
+    >
       {stars.map((fill, i) => {
         if (readonly) {
           return (
@@ -83,19 +93,29 @@ export default function StarRating({
         // Each star has two tappable halves
         return (
           <View key={i} style={{ flexDirection: 'row' }}>
-            {/* Left half → 0.5 increment */}
+            {/* Left half -> 0.5 increment */}
             <TouchableOpacity
-              onPress={() => onChange?.((i + 0.5))}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onChange?.((i + 0.5));
+              }}
               hitSlop={{ top: 4, bottom: 4, left: 2, right: 0 }}
+              accessibilityLabel={`Rate ${i + 0.5} stars`}
+              accessibilityRole="button"
             >
               <View style={{ width: size / 2, height: size, overflow: 'hidden' }}>
                 <StarGlyph fill={fill} size={size} />
               </View>
             </TouchableOpacity>
-            {/* Right half → full increment */}
+            {/* Right half -> full increment */}
             <TouchableOpacity
-              onPress={() => onChange?.(i + 1)}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onChange?.(i + 1);
+              }}
               hitSlop={{ top: 4, bottom: 4, left: 0, right: 2 }}
+              accessibilityLabel={`Rate ${i + 1} stars`}
+              accessibilityRole="button"
             >
               <View
                 style={{
@@ -112,58 +132,6 @@ export default function StarRating({
           </View>
         );
       })}
-    </View>
-  );
-}
-
-function StarGlyph({
-  fill,
-  size,
-}: {
-  fill: 'full' | 'half' | 'empty';
-  size: number;
-}) {
-  const color =
-    fill === 'full' ? GOLD : fill === 'half' ? GOLD : EMPTY;
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Unicode star rendered via a Text-like approach using View layers */}
-      <View
-        style={{
-          width: size * 0.85,
-          height: size * 0.85,
-          backgroundColor: fill === 'empty' ? EMPTY : 'transparent',
-          borderRadius: size * 0.1,
-        }}
-      />
-      {/* Gold fill for full stars */}
-      {fill !== 'empty' && (
-        <View
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            width: fill === 'half' ? size / 2 : size,
-            height: size,
-            backgroundColor: GOLD,
-            borderRadius: size * 0.1,
-          }}
-        />
-      )}
-      {/* Empty overlay on right half */}
-      {fill === 'half' && (
-        <View
-          style={{
-            position: 'absolute',
-            left: size / 2,
-            top: 0,
-            width: size / 2,
-            height: size,
-            backgroundColor: EMPTY,
-            borderRadius: size * 0.1,
-          }}
-        />
-      )}
     </View>
   );
 }

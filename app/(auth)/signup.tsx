@@ -12,12 +12,14 @@ import {
 } from 'react-native';
 import { Link } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { signInWithGoogle } from '@/lib/googleAuth';
 
 export default function SignupScreen() {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleSignup() {
     if (!displayName.trim() || !email || !password) {
@@ -41,11 +43,19 @@ export default function SignupScreen() {
 
     if (error) {
       Alert.alert('Sign Up Failed', error.message);
-    } else {
-      Alert.alert(
-        'Check your email',
-        'We sent you a confirmation link. Click it to activate your account.',
-      );
+    }
+    // If email confirmation is disabled, onAuthStateChange in _layout.tsx
+    // picks up the new session automatically and redirects to (tabs)
+  }
+
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      Alert.alert('Google Sign In Failed', error.message);
+    } finally {
+      setGoogleLoading(false);
     }
   }
 
@@ -104,13 +114,35 @@ export default function SignupScreen() {
             <TouchableOpacity
               className="bg-accent rounded-xl py-4 items-center mt-2"
               onPress={handleSignup}
-              disabled={loading}
+              disabled={loading || googleLoading}
             >
               {loading ? (
                 <ActivityIndicator color="#0a0a0a" />
               ) : (
                 <Text className="text-background font-semibold text-base">
                   Create Account
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View className="flex-row items-center mt-4">
+              <View className="flex-1 h-px bg-border" />
+              <Text className="text-muted text-sm mx-4">or</Text>
+              <View className="flex-1 h-px bg-border" />
+            </View>
+
+            {/* Google Sign In */}
+            <TouchableOpacity
+              className="bg-surface border border-border rounded-xl py-4 items-center mt-4"
+              onPress={handleGoogleSignIn}
+              disabled={loading || googleLoading}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text className="text-white font-semibold text-base">
+                  Continue with Google
                 </Text>
               )}
             </TouchableOpacity>

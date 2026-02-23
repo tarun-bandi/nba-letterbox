@@ -1,55 +1,155 @@
 import '../global.css';
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { StatusBar } from 'react-native';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
+import Toast from '@/components/Toast';
 
-export default function RootLayout() {
-  const { session, isLoading, setSession, setLoading } = useAuthStore();
+function useProtectedRoute() {
+  const { session, isLoading, onboardingCompleted } = useAuthStore();
+  const segments = useSegments();
+  const router = useRouter();
 
   useEffect(() => {
-    // Restore session from SecureStore on mount
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+    const inOnboarding = segments[0] === 'onboarding';
+
+    if (!session && !inAuthGroup) {
+      router.replace('/(auth)/login');
+    } else if (session && inAuthGroup) {
+      if (onboardingCompleted === false) {
+        router.replace('/onboarding');
+      } else {
+        router.replace('/(tabs)/feed');
+      }
+    } else if (session && !inOnboarding && onboardingCompleted === false) {
+      router.replace('/onboarding');
+    } else if (session && inOnboarding && onboardingCompleted === true) {
+      router.replace('/(tabs)/feed');
+    }
+  }, [session, isLoading, segments, onboardingCompleted]);
+}
+
+async function fetchOnboardingStatus(userId: string): Promise<boolean> {
+  // Query the full profile row and check if the column exists
+  // This handles the case where the migration hasn't been applied yet
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data) return true; // default to completed if can't fetch
+
+  // If the column exists, use it; otherwise assume completed (pre-migration user)
+  if ('onboarding_completed' in data) {
+    return (data as any).onboarding_completed ?? true;
+  }
+  return true;
+}
+
+export default function RootLayout() {
+  const { isLoading, setSession, setLoading, setOnboardingCompleted } = useAuthStore();
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setLoading(false);
+      if (session?.user) {
+        fetchOnboardingStatus(session.user.id).then((completed) => {
+          setOnboardingCompleted(completed);
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
+      }
     });
 
-    // Listen for auth state changes (login, logout, token refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session?.user) {
+        fetchOnboardingStatus(session.user.id).then((completed) => {
+          setOnboardingCompleted(completed);
+        });
+      } else {
+        setOnboardingCompleted(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Prevent auth flash while reading session from storage
+  useProtectedRoute();
+
   if (isLoading) return null;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <Stack screenOptions={{ headerShown: false }}>
-        {session ? (
-          // Authenticated routes
-          <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar barStyle="light-content" />
+        <QueryClientProvider client={queryClient}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="onboarding" />
             <Stack.Screen
               name="game/[id]"
-              options={{ presentation: 'card', headerShown: true, title: 'Game' }}
+              options={{
+                headerShown: true,
+                title: 'Game',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
             />
             <Stack.Screen
               name="user/[handle]"
-              options={{ presentation: 'card', headerShown: true, title: 'Profile' }}
+              options={{
+                headerShown: true,
+                title: 'Profile',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
             />
-          </>
-        ) : (
-          // Unauthenticated routes
-          <Stack.Screen name="(auth)" />
-        )}
-      </Stack>
-    </QueryClientProvider>
+            <Stack.Screen
+              name="list/[id]"
+              options={{
+                headerShown: true,
+                title: 'List',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
+            <Stack.Screen
+              name="notifications"
+              options={{
+                headerShown: true,
+                title: 'Notifications',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
+            <Stack.Screen
+              name="tag/[slug]"
+              options={{
+                headerShown: true,
+                title: 'Tag',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
+          </Stack>
+          <Toast />
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

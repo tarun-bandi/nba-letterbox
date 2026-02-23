@@ -2,29 +2,49 @@ import {
   View,
   Text,
   FlatList,
-  ActivityIndicator,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
 import GameCard from '@/components/GameCard';
+import ErrorState from '@/components/ErrorState';
+import { FeedSkeleton } from '@/components/Skeleton';
 import type { GameLogWithGame } from '@/types/database';
 
-async function fetchFeed(userId: string): Promise<GameLogWithGame[]> {
-  // 1. Get followed user IDs
-  const { data: follows, error: followsError } = await supabase
-    .from('follows')
-    .select('following_id')
-    .eq('follower_id', userId);
+const PAGE_SIZE = 20;
 
-  if (followsError) throw followsError;
+interface FeedPage {
+  logs: GameLogWithGame[];
+  nextOffset: number | null;
+  favoriteTeamIds: string[];
+}
 
-  const followedIds = (follows ?? []).map((f) => f.following_id);
-  // Include own logs too
+async function fetchFeedPage(
+  userId: string,
+  offset: number,
+): Promise<FeedPage> {
+  // 1. Get followed user IDs + favorite team IDs in parallel
+  const [followsRes, favTeamsRes] = await Promise.all([
+    supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', userId),
+    supabase
+      .from('user_favorite_teams')
+      .select('team_id')
+      .eq('user_id', userId),
+  ]);
+
+  if (followsRes.error) throw followsRes.error;
+
+  const followedIds = (followsRes.data ?? []).map((f) => f.following_id);
+  const favoriteTeamIds = (favTeamsRes.data ?? []).map((f) => f.team_id);
   const userIds = [userId, ...followedIds];
 
-  if (userIds.length === 0) return [];
+  if (userIds.length === 0) return { logs: [], nextOffset: null, favoriteTeamIds };
 
   // 2. Fetch logs with game + team details
   const { data, error } = await supabase
@@ -36,57 +56,100 @@ async function fetchFeed(userId: string): Promise<GameLogWithGame[]> {
         home_team:teams!games_home_team_id_fkey (*),
         away_team:teams!games_away_team_id_fkey (*),
         season:seasons (*)
-      ),
-      user_profile:user_profiles (*)
+      )
     `)
     .in('user_id', userIds)
     .order('logged_at', { ascending: false })
-    .limit(50);
+    .range(offset, offset + PAGE_SIZE - 1);
 
   if (error) throw error;
-  return (data ?? []) as unknown as GameLogWithGame[];
+
+  const rawLogs = (data ?? []) as unknown as GameLogWithGame[];
+
+  // Fetch profiles separately
+  const logUserIds = [...new Set(rawLogs.map((l) => l.user_id))];
+  let profileMap: Record<string, any> = {};
+  if (logUserIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .in('user_id', logUserIds);
+    for (const p of profiles ?? []) {
+      profileMap[p.user_id] = p;
+    }
+  }
+
+  const logsWithProfiles = rawLogs.map((l) => ({
+    ...l,
+    user_profile: profileMap[l.user_id] ?? undefined,
+  }));
+
+  const logs = await enrichLogs(logsWithProfiles, userId);
+  const nextOffset = rawLogs.length === PAGE_SIZE ? offset + PAGE_SIZE : null;
+
+  return { logs, nextOffset, favoriteTeamIds };
 }
 
 export default function FeedScreen() {
   const { user } = useAuthStore();
 
-  const { data, isLoading, error, refetch, isRefetching } = useQuery({
+  const {
+    data,
+    isLoading,
+    error,
+    refetch,
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['feed', user?.id],
-    queryFn: () => fetchFeed(user!.id),
+    queryFn: ({ pageParam = 0 }) => fetchFeedPage(user!.id, pageParam),
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
+    initialPageParam: 0,
     enabled: !!user,
   });
 
   if (isLoading) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator color="#c9a84c" size="large" />
-      </View>
-    );
+    return <FeedSkeleton />;
   }
 
   if (error) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center px-6">
-        <Text className="text-accent-red text-center">
-          Failed to load feed. Pull to refresh.
-        </Text>
-      </View>
-    );
+    return <ErrorState message="Failed to load feed" onRetry={refetch} />;
+  }
+
+  // Flatten pages and sort by favorite teams on first page
+  const allLogs = data?.pages.flatMap((p) => p.logs) ?? [];
+  const favoriteTeamIds = new Set(data?.pages[0]?.favoriteTeamIds ?? []);
+
+  // Sort: favorite team games first within the full list
+  if (favoriteTeamIds.size > 0) {
+    allLogs.sort((a, b) => {
+      const aFav = a.game &&
+        (favoriteTeamIds.has(a.game.home_team_id) || favoriteTeamIds.has(a.game.away_team_id))
+        ? 1 : 0;
+      const bFav = b.game &&
+        (favoriteTeamIds.has(b.game.home_team_id) || favoriteTeamIds.has(b.game.away_team_id))
+        ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+      return new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime();
+    });
   }
 
   return (
     <View className="flex-1 bg-background">
       <FlatList
-        data={data}
+        data={allLogs}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <GameCard log={item} showUser />}
         contentContainerStyle={
-          data && data.length === 0
+          allLogs.length === 0
             ? { flex: 1, justifyContent: 'center', alignItems: 'center' }
-            : { paddingVertical: 8 }
+            : { paddingVertical: 8, paddingHorizontal: 16 }
         }
         ListEmptyComponent={
           <View className="px-6 items-center">
+            <Text style={{ fontSize: 48 }} className="mb-3">🏀</Text>
             <Text className="text-white text-lg font-semibold mb-2">
               Nothing here yet
             </Text>
@@ -95,9 +158,20 @@ export default function FeedScreen() {
             </Text>
           </View>
         }
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View className="py-4">
+              <ActivityIndicator color="#c9a84c" />
+            </View>
+          ) : null
+        }
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+        }}
+        onEndReachedThreshold={0.5}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
+            refreshing={isRefetching && !isFetchingNextPage}
             onRefresh={refetch}
             tintColor="#c9a84c"
           />

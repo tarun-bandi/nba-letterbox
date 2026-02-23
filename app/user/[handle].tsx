@@ -1,16 +1,24 @@
+import { useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UserPlus, UserMinus } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
+import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
+import { useToastStore } from '@/lib/store/toastStore';
+import Avatar from '@/components/Avatar';
+import ErrorState from '@/components/ErrorState';
 import GameCard from '@/components/GameCard';
+import FollowListModal from '@/components/FollowListModal';
 import type { GameLogWithGame, UserProfile } from '@/types/database';
 
 interface PublicProfileData {
@@ -18,6 +26,8 @@ interface PublicProfileData {
   logs: GameLogWithGame[];
   stats: { count: number; avgRating: number | null };
   isFollowing: boolean;
+  followerCount: number;
+  followingCount: number;
 }
 
 async function fetchPublicProfile(
@@ -32,7 +42,7 @@ async function fetchPublicProfile(
 
   if (profileError) throw profileError;
 
-  const [logsRes, followRes] = await Promise.all([
+  const [logsRes, followRes, followerRes, followingRes] = await Promise.all([
     supabase
       .from('game_logs')
       .select(`
@@ -53,11 +63,20 @@ async function fetchPublicProfile(
       .eq('follower_id', currentUserId)
       .eq('following_id', profile.user_id)
       .maybeSingle(),
+    supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('following_id', profile.user_id),
+    supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('follower_id', profile.user_id),
   ]);
 
   if (logsRes.error) throw logsRes.error;
 
-  const logs = (logsRes.data ?? []) as unknown as GameLogWithGame[];
+  const rawLogs = (logsRes.data ?? []) as unknown as GameLogWithGame[];
+  const logs = await enrichLogs(rawLogs, currentUserId);
   const ratings = logs.filter((l) => l.rating !== null).map((l) => l.rating!);
   const avgRating =
     ratings.length > 0
@@ -69,15 +88,19 @@ async function fetchPublicProfile(
     logs,
     stats: { count: logs.length, avgRating },
     isFollowing: followRes.data !== null,
+    followerCount: followerRes.count ?? 0,
+    followingCount: followingRes.count ?? 0,
   };
 }
 
 export default function UserProfileScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const { user } = useAuthStore();
+  const toast = useToastStore();
   const queryClient = useQueryClient();
+  const [showFollowList, setShowFollowList] = useState<'followers' | 'following' | null>(null);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['user-profile', handle],
     queryFn: () => fetchPublicProfile(handle, user!.id),
     enabled: !!handle && !!user,
@@ -101,9 +124,11 @@ export default function UserProfileScreen() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, shouldFollow) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       queryClient.invalidateQueries({ queryKey: ['user-profile', handle] });
       queryClient.invalidateQueries({ queryKey: ['feed'] });
+      toast.show(shouldFollow ? `Following @${handle}` : `Unfollowed @${handle}`);
     },
   });
 
@@ -116,29 +141,45 @@ export default function UserProfileScreen() {
   }
 
   if (error || !data) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center">
-        <Text className="text-accent-red">User not found.</Text>
-      </View>
-    );
+    return <ErrorState message="User not found" onRetry={refetch} />;
   }
 
-  const { profile, logs, stats, isFollowing } = data;
+  const { profile, logs, stats, isFollowing, followerCount, followingCount } = data;
   const isOwnProfile = user?.id === profile.user_id;
 
   return (
-    <ScrollView className="flex-1 bg-background" showsVerticalScrollIndicator={false}>
+    <ScrollView
+      className="flex-1 bg-background"
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefetching}
+          onRefresh={refetch}
+          tintColor="#c9a84c"
+        />
+      }
+    >
       {/* Header */}
       <View className="bg-surface border-b border-border px-6 py-6">
         <View className="flex-row justify-between items-start">
-          <View className="flex-1">
-            <Text className="text-white text-2xl font-bold">
-              {profile.display_name}
-            </Text>
-            <Text className="text-muted mt-0.5">@{profile.handle}</Text>
-            {profile.bio ? (
-              <Text className="text-white mt-2 text-sm">{profile.bio}</Text>
-            ) : null}
+          <View className="flex-row items-center gap-3 flex-1">
+            <Avatar
+              url={profile.avatar_url}
+              name={profile.display_name}
+              size={64}
+            />
+            <View className="flex-1">
+              <Text className="text-white text-2xl font-bold">
+                {profile.display_name}
+              </Text>
+              <Text className="text-muted mt-0.5">@{profile.handle}</Text>
+              {profile.bio ? (
+                <Text className="text-white mt-2 text-sm">{profile.bio}</Text>
+              ) : null}
+              <Text className="text-muted text-xs mt-1">
+                Joined {new Date(profile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+              </Text>
+            </View>
           </View>
 
           {!isOwnProfile && (
@@ -151,18 +192,27 @@ export default function UserProfileScreen() {
               onPress={() => followMutation.mutate(!isFollowing)}
               disabled={followMutation.isPending}
             >
-              {isFollowing ? (
-                <UserMinus size={16} color="#6b7280" />
+              {followMutation.isPending ? (
+                <ActivityIndicator
+                  size="small"
+                  color={isFollowing ? '#6b7280' : '#0a0a0a'}
+                />
               ) : (
-                <UserPlus size={16} color="#0a0a0a" />
+                <>
+                  {isFollowing ? (
+                    <UserMinus size={16} color="#6b7280" />
+                  ) : (
+                    <UserPlus size={16} color="#0a0a0a" />
+                  )}
+                  <Text
+                    className={`text-sm font-medium ${
+                      isFollowing ? 'text-muted' : 'text-background'
+                    }`}
+                  >
+                    {isFollowing ? 'Unfollow' : 'Follow'}
+                  </Text>
+                </>
               )}
-              <Text
-                className={`text-sm font-medium ${
-                  isFollowing ? 'text-muted' : 'text-background'
-                }`}
-              >
-                {isFollowing ? 'Unfollow' : 'Follow'}
-              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -179,6 +229,14 @@ export default function UserProfileScreen() {
             </Text>
             <Text className="text-muted text-xs mt-0.5">Avg Rating</Text>
           </View>
+          <TouchableOpacity onPress={() => setShowFollowList('followers')}>
+            <Text className="text-accent text-xl font-bold">{followerCount}</Text>
+            <Text className="text-muted text-xs mt-0.5">Followers</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowFollowList('following')}>
+            <Text className="text-accent text-xl font-bold">{followingCount}</Text>
+            <Text className="text-muted text-xs mt-0.5">Following</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -193,6 +251,14 @@ export default function UserProfileScreen() {
           logs.map((log) => <GameCard key={log.id} log={log} />)
         )}
       </View>
+
+      {showFollowList && (
+        <FollowListModal
+          userId={profile.user_id}
+          mode={showFollowList}
+          onClose={() => setShowFollowList(null)}
+        />
+      )}
     </ScrollView>
   );
 }
