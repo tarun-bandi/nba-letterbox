@@ -107,7 +107,7 @@ export default function FavoriteTeamsModal({
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View className="bg-surface rounded-t-3xl border-t border-border" style={{ maxHeight: '80%' }}>
+          <View className="bg-surface rounded-t-3xl border-t border-border" style={{ maxHeight: '85%' }}>
             <View className="items-center pt-3 pb-1">
               <View className="w-10 h-1 bg-border rounded-full" />
             </View>
@@ -131,7 +131,7 @@ export default function FavoriteTeamsModal({
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 16 }}
               >
-                <View className="flex-row flex-wrap gap-2">
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {teams.map((team) => {
                     const isSelected = selected.has(team.id);
                     return (

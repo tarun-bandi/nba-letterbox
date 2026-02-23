@@ -9,12 +9,13 @@ import {
   Keyboard,
   Linking,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
-import { List, Play } from 'lucide-react-native';
+import { List, Play, Bookmark } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import GameCard from '@/components/GameCard';
 import ErrorState from '@/components/ErrorState';
 import LogModal from '@/components/LogModal';
@@ -29,10 +30,12 @@ interface GameDetail {
   myLog: GameLogWithGame | null;
   communityAvg: number | null;
   boxScores: BoxScore[];
+  isBookmarked: boolean;
+  playerNameMap: Record<string, string>; // player_name -> player_id
 }
 
 async function fetchGameDetail(gameId: string, userId: string): Promise<GameDetail> {
-  const [gameRes, logsRes, boxRes] = await Promise.all([
+  const [gameRes, logsRes, boxRes, watchlistRes] = await Promise.all([
     supabase
       .from('games')
       .select(`
@@ -61,6 +64,12 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
       .from('box_scores')
       .select('*')
       .eq('game_id', gameId),
+    supabase
+      .from('watchlist')
+      .select('game_id')
+      .eq('user_id', userId)
+      .eq('game_id', gameId)
+      .maybeSingle(),
   ]);
 
   if (gameRes.error) throw gameRes.error;
@@ -94,12 +103,34 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
       ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) / 10
       : null;
 
+  const allBoxScores = (boxRes.data ?? []) as BoxScore[];
+
+  // Build player name → id map from players table
+  const playerNames = [...new Set(allBoxScores.map((b) => b.player_name))];
+  const playerNameMap: Record<string, string> = {};
+  if (playerNames.length > 0) {
+    const { data: players } = await supabase
+      .from('players')
+      .select('id, first_name, last_name');
+    if (players) {
+      const nameIndex: Record<string, string> = {};
+      for (const p of players) {
+        nameIndex[`${p.first_name} ${p.last_name}`] = p.id;
+      }
+      for (const name of playerNames) {
+        if (nameIndex[name]) playerNameMap[name] = nameIndex[name];
+      }
+    }
+  }
+
   return {
     game: gameRes.data as unknown as GameWithTeams,
     logs,
     myLog,
     communityAvg,
-    boxScores: (boxRes.data ?? []) as BoxScore[],
+    boxScores: allBoxScores,
+    isBookmarked: !!watchlistRes.data,
+    playerNameMap,
   };
 }
 
@@ -214,7 +245,8 @@ function getSortNumber(player: BoxScore, key: SortKey): number {
   return typeof val === 'number' ? val : -1;
 }
 
-function BoxScoreSection({ boxScores, game }: { boxScores: BoxScore[]; game: GameWithTeams }) {
+function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxScore[]; game: GameWithTeams; playerNameMap: Record<string, string> }) {
+  const router = useRouter();
   const [activeTeamId, setActiveTeamId] = useState(game.away_team_id);
   const [sortKey, setSortKey] = useState<SortKey>('points');
   const [sortAsc, setSortAsc] = useState(false);
@@ -249,13 +281,19 @@ function BoxScoreSection({ boxScores, game }: { boxScores: BoxScore[]; game: Gam
 
   const isAwayActive = activeTeamId === game.away_team_id;
 
-  const renderPlayerRow = (player: BoxScore) => (
+  const renderPlayerRow = (player: BoxScore) => {
+    const playerId = playerNameMap[player.player_name];
+    const NameWrapper = playerId ? TouchableOpacity : View;
+    return (
     <View key={player.id} className="flex-row items-center py-2 border-b border-border">
-      <View className="w-28 pr-2">
-        <Text className="text-white text-xs" numberOfLines={1}>
+      <NameWrapper
+        className="w-28 pr-2"
+        {...(playerId ? { onPress: () => router.push(`/player/${playerId}`), activeOpacity: 0.6 } : {})}
+      >
+        <Text className={`text-xs ${playerId ? 'text-accent' : 'text-white'}`} numberOfLines={1}>
           {player.player_name}
         </Text>
-      </View>
+      </NameWrapper>
       {STAT_COLUMNS.map((col) => (
         <View key={col.key} style={{ width: col.width }} className="items-center">
           <Text className={`text-xs ${col.key === sortKey ? 'text-accent font-semibold' : 'text-muted'}`}>
@@ -265,6 +303,7 @@ function BoxScoreSection({ boxScores, game }: { boxScores: BoxScore[]; game: Gam
       ))}
     </View>
   );
+  };
 
   return (
     <View className="mx-4 mt-6">
@@ -357,6 +396,41 @@ export default function GameDetailScreen() {
   const [showLogModal, setShowLogModal] = useState(false);
   const [showListModal, setShowListModal] = useState(false);
 
+  const bookmarkMutation = useMutation({
+    mutationFn: async (bookmarked: boolean) => {
+      if (!user) return;
+      if (bookmarked) {
+        const { error } = await supabase
+          .from('watchlist')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('game_id', id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('watchlist')
+          .insert({ user_id: user.id, game_id: id });
+        if (error) throw error;
+      }
+    },
+    onMutate: async (bookmarked) => {
+      await queryClient.cancelQueries({ queryKey: ['game-detail', id] });
+      const prev = queryClient.getQueryData(['game-detail', id]);
+      queryClient.setQueryData(['game-detail', id], (old: any) =>
+        old ? { ...old, isBookmarked: !bookmarked } : old,
+      );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['game-detail', id], ctx.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['game-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+    },
+  });
+
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['game-detail', id],
     queryFn: () => fetchGameDetail(id, user!.id),
@@ -375,7 +449,7 @@ export default function GameDetailScreen() {
     return <ErrorState message="Failed to load game details" onRetry={refetch} />;
   }
 
-  const { game, logs, myLog, communityAvg, boxScores } = data;
+  const { game, logs, myLog, communityAvg, boxScores, isBookmarked, playerNameMap } = data;
   const gamePlayedOrLive = game.status === 'final' || game.status === 'live';
 
   return (
@@ -484,6 +558,17 @@ export default function GameDetailScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               className="bg-surface border border-border rounded-xl py-4 px-5 items-center justify-center"
+              onPress={() => bookmarkMutation.mutate(isBookmarked)}
+              activeOpacity={0.8}
+            >
+              <Bookmark
+                size={22}
+                color="#c9a84c"
+                fill={isBookmarked ? '#c9a84c' : 'transparent'}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="bg-surface border border-border rounded-xl py-4 px-5 items-center justify-center"
               onPress={() => setShowListModal(true)}
               activeOpacity={0.8}
             >
@@ -493,7 +578,11 @@ export default function GameDetailScreen() {
         ) : (
           <View className="mx-4 mt-4 bg-surface border border-border rounded-xl py-4 items-center">
             <Text className="text-muted font-medium text-base">
-              Game hasn't started yet
+              Tipoff at{' '}
+              {new Date(game.game_date_utc).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
             </Text>
           </View>
         )}
@@ -511,7 +600,7 @@ export default function GameDetailScreen() {
         )}
 
         {/* Box Score */}
-        <BoxScoreSection boxScores={boxScores} game={game} />
+        <BoxScoreSection boxScores={boxScores} game={game} playerNameMap={playerNameMap} />
 
         {/* Recent Logs */}
         <View className="px-4 pt-6 pb-4">

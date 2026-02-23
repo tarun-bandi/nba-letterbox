@@ -19,11 +19,40 @@ import { useAuthStore } from '@/lib/store/authStore';
 import Avatar from '@/components/Avatar';
 import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
-import type { GameWithTeams, Season, UserProfile } from '@/types/database';
+import type { GameWithTeams, Season, UserProfile, Player, Team } from '@/types/database';
 
 const PAGE_SIZE = 20;
 
-type SearchMode = 'games' | 'users';
+type SearchMode = 'games' | 'users' | 'players';
+
+interface PlayerWithTeam extends Player {
+  team: Team | null;
+}
+
+interface PlayersPage {
+  players: PlayerWithTeam[];
+  nextOffset: number | null;
+}
+
+async function searchPlayersPage(
+  query: string,
+  offset: number,
+): Promise<PlayersPage> {
+  const { data, error } = await supabase
+    .from('players')
+    .select('*, team:teams (*)')
+    .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+    .order('last_name', { ascending: true })
+    .range(offset, offset + PAGE_SIZE - 1);
+
+  if (error) throw error;
+
+  const players = (data ?? []) as unknown as PlayerWithTeam[];
+  return {
+    players,
+    nextOffset: players.length === PAGE_SIZE ? offset + PAGE_SIZE : null,
+  };
+}
 
 async function fetchSeasons(): Promise<Season[]> {
   const { data, error } = await supabase
@@ -238,13 +267,28 @@ export default function SearchScreen() {
     enabled: searchMode === 'users' && debouncedQuery.trim().length >= 2,
   });
 
+  const playersQuery = useInfiniteQuery({
+    queryKey: ['players-search', debouncedQuery],
+    queryFn: ({ pageParam = 0 }) => searchPlayersPage(debouncedQuery, pageParam),
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
+    initialPageParam: 0,
+    enabled: searchMode === 'players' && debouncedQuery.trim().length >= 2,
+  });
+
   const allGames = gamesQuery.data?.pages.flatMap((p) => p.games) ?? [];
   const loggedGameIds = new Set(gamesQuery.data?.pages.flatMap((p) => p.loggedGameIds) ?? []);
   const allUsers = usersQuery.data?.pages.flatMap((p) => p.users) ?? [];
-  const isLoading = searchMode === 'games' ? gamesQuery.isLoading : usersQuery.isLoading;
+  const allPlayers = playersQuery.data?.pages.flatMap((p) => p.players) ?? [];
+  const isLoading = searchMode === 'games'
+    ? gamesQuery.isLoading
+    : searchMode === 'users'
+    ? usersQuery.isLoading
+    : playersQuery.isLoading;
   const isFetchingNext = searchMode === 'games'
     ? gamesQuery.isFetchingNextPage
-    : usersQuery.isFetchingNextPage;
+    : searchMode === 'users'
+    ? usersQuery.isFetchingNextPage
+    : playersQuery.isFetchingNextPage;
 
   return (
     <View className="flex-1 bg-background">
@@ -257,7 +301,9 @@ export default function SearchScreen() {
             placeholder={
               searchMode === 'games'
                 ? 'Search games (e.g. LAL, MIA @ BOS)'
-                : 'Search users by name or handle'
+                : searchMode === 'users'
+                ? 'Search users by name or handle'
+                : 'Search players by name'
             }
             placeholderTextColor="#6b7280"
             value={query}
@@ -271,7 +317,7 @@ export default function SearchScreen() {
 
       {/* Mode toggle */}
       <View className="flex-row px-4 pb-2 gap-2">
-        {(['games', 'users'] as const).map((mode) => (
+        {(['games', 'users', 'players'] as const).map((mode) => (
           <TouchableOpacity
             key={mode}
             onPress={() => setSearchMode(mode)}
@@ -344,6 +390,79 @@ export default function SearchScreen() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color="#c9a84c" />
         </View>
+      ) : searchMode === 'players' ? (
+        <FlatList
+          data={allPlayers}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              className="mx-4 my-1 bg-surface border border-border rounded-xl p-4 flex-row items-center gap-3"
+              onPress={() => router.push(`/player/${item.id}`)}
+              activeOpacity={0.7}
+            >
+              <View className="flex-1">
+                <Text className="text-white font-semibold text-base">
+                  {item.first_name} {item.last_name}
+                </Text>
+                <View className="flex-row items-center gap-2 mt-0.5">
+                  {item.position && (
+                    <Text className="text-accent text-xs font-semibold">{item.position}</Text>
+                  )}
+                  {item.team && (
+                    <View className="flex-row items-center gap-1">
+                      <TeamLogo abbreviation={(item.team as Team).abbreviation} size={14} />
+                      <Text className="text-muted text-xs">
+                        {(item.team as Team).abbreviation}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            debouncedQuery.length >= 2 ? (
+              <View className="flex-1 items-center justify-center pt-16">
+                <Text style={{ fontSize: 48 }} className="mb-3">{'\u{1F3C0}'}</Text>
+                <Text className="text-muted">No players found for "{debouncedQuery}"</Text>
+              </View>
+            ) : (
+              <View className="flex-1 items-center justify-center pt-16 px-6">
+                <Text style={{ fontSize: 48 }} className="mb-3">{'\u{1F3C0}'}</Text>
+                <Text className="text-white text-lg font-semibold mb-2">Find players</Text>
+                <Text className="text-muted text-center">
+                  Search for NBA players by name
+                </Text>
+              </View>
+            )
+          }
+          ListFooterComponent={
+            isFetchingNext ? (
+              <View className="py-4">
+                <ActivityIndicator color="#c9a84c" />
+              </View>
+            ) : null
+          }
+          onEndReached={() => {
+            if (playersQuery.hasNextPage && !playersQuery.isFetchingNextPage) {
+              playersQuery.fetchNextPage();
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 16 }}
+          onScrollBeginDrag={Keyboard.dismiss}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            debouncedQuery.length >= 2 ? (
+              <RefreshControl
+                refreshing={playersQuery.isRefetching && !playersQuery.isFetchingNextPage}
+                onRefresh={() => playersQuery.refetch()}
+                tintColor="#c9a84c"
+              />
+            ) : undefined
+          }
+        />
       ) : searchMode === 'games' ? (
         <FlatList
           data={allGames}

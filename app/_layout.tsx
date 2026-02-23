@@ -146,6 +146,42 @@ export default function RootLayout() {
                 headerTintColor: '#ffffff',
               }}
             />
+            <Stack.Screen
+              name="watchlist"
+              options={{
+                headerShown: true,
+                title: 'Watchlist',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
+            <Stack.Screen
+              name="stats"
+              options={{
+                headerShown: true,
+                title: 'Stats & Insights',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{
+                headerShown: true,
+                title: 'Settings',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
+            <Stack.Screen
+              name="player/[id]"
+              options={{
+                headerShown: true,
+                title: 'Player',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
           </Stack>
           <Toast />
         </QueryClientProvider>

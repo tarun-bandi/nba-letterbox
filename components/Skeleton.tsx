@@ -107,3 +107,55 @@ export function FeedSkeleton() {
     </View>
   );
 }
+
+function DiscoverSectionSkeleton() {
+  return (
+    <View className="px-4 pt-4">
+      <Skeleton width={160} height={22} className="mb-3" />
+      <View className="bg-surface border border-border rounded-xl p-4 mb-2">
+        <View className="flex-row items-center gap-2">
+          <Skeleton width={22} height={22} borderRadius={11} />
+          <Skeleton width={80} height={16} />
+          <Skeleton width={16} height={16} />
+          <Skeleton width={22} height={22} borderRadius={11} />
+          <Skeleton width={80} height={16} />
+        </View>
+      </View>
+      <View className="bg-surface border border-border rounded-xl p-4 mb-2">
+        <View className="flex-row items-center gap-2">
+          <Skeleton width={22} height={22} borderRadius={11} />
+          <Skeleton width={90} height={16} />
+          <Skeleton width={16} height={16} />
+          <Skeleton width={22} height={22} borderRadius={11} />
+          <Skeleton width={70} height={16} />
+        </View>
+      </View>
+      <View className="bg-surface border border-border rounded-xl p-4 mb-2">
+        <View className="flex-row items-center gap-2">
+          <Skeleton width={22} height={22} borderRadius={11} />
+          <Skeleton width={70} height={16} />
+          <Skeleton width={16} height={16} />
+          <Skeleton width={22} height={22} borderRadius={11} />
+          <Skeleton width={80} height={16} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+export function DiscoverSkeleton() {
+  return (
+    <View className="flex-1 bg-background">
+      <DiscoverSectionSkeleton />
+      <DiscoverSectionSkeleton />
+      <View className="px-4 pt-4">
+        <Skeleton width={140} height={22} className="mb-3" />
+        <View className="flex-row flex-wrap gap-2">
+          <Skeleton width={100} height={32} borderRadius={16} />
+          <Skeleton width={80} height={32} borderRadius={16} />
+          <Skeleton width={90} height={32} borderRadius={16} />
+        </View>
+      </View>
+    </View>
+  );
+}

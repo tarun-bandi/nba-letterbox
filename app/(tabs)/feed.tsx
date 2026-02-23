@@ -4,12 +4,15 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
 import GameCard from '@/components/GameCard';
+import TodaysGames from '@/components/TodaysGames';
 import ErrorState from '@/components/ErrorState';
 import { FeedSkeleton } from '@/components/Skeleton';
 import type { GameLogWithGame } from '@/types/database';
@@ -92,6 +95,7 @@ async function fetchFeedPage(
 
 export default function FeedScreen() {
   const { user } = useAuthStore();
+  const router = useRouter();
 
   const {
     data,
@@ -142,6 +146,7 @@ export default function FeedScreen() {
         data={allLogs}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <GameCard log={item} showUser />}
+        ListHeaderComponent={<TodaysGames />}
         contentContainerStyle={
           allLogs.length === 0
             ? { flex: 1, justifyContent: 'center', alignItems: 'center' }
@@ -149,13 +154,22 @@ export default function FeedScreen() {
         }
         ListEmptyComponent={
           <View className="px-6 items-center">
-            <Text style={{ fontSize: 48 }} className="mb-3">🏀</Text>
+            <Text style={{ fontSize: 48 }} className="mb-3">{'\u{1F3C0}'}</Text>
             <Text className="text-white text-lg font-semibold mb-2">
               Nothing here yet
             </Text>
-            <Text className="text-muted text-center">
+            <Text className="text-muted text-center mb-4">
               Follow other fans or search for a game to log your first entry.
             </Text>
+            <TouchableOpacity
+              className="bg-accent rounded-xl px-6 py-3"
+              onPress={() => router.push('/(tabs)/search')}
+              activeOpacity={0.8}
+            >
+              <Text className="text-background font-semibold text-base">
+                Search Games
+              </Text>
+            </TouchableOpacity>
           </View>
         }
         ListFooterComponent={
