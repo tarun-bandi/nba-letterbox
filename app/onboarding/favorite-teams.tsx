@@ -27,6 +27,7 @@ export default function OnboardingFavoriteTeams() {
     supabase
       .from('teams')
       .select('*')
+      .in('conference', ['East', 'West'])
       .order('full_name', { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) setTeams(data as Team[]);

@@ -62,12 +62,14 @@ async function searchGamesPage(
       supabase
         .from('teams')
         .select('id')
+        .in('conference', ['East', 'West'])
         .or(
           `abbreviation.ilike.%${matchup.away}%,name.ilike.%${matchup.away}%,city.ilike.%${matchup.away}%,full_name.ilike.%${matchup.away}%`
         ),
       supabase
         .from('teams')
         .select('id')
+        .in('conference', ['East', 'West'])
         .or(
           `abbreviation.ilike.%${matchup.home}%,name.ilike.%${matchup.home}%,city.ilike.%${matchup.home}%,full_name.ilike.%${matchup.home}%`
         ),
@@ -115,6 +117,7 @@ async function searchGamesPage(
     const { data: teams, error: teamsError } = await supabase
       .from('teams')
       .select('id')
+      .in('conference', ['East', 'West'])
       .or(
         `abbreviation.ilike.%${query}%,name.ilike.%${query}%,city.ilike.%${query}%,full_name.ilike.%${query}%`
       );
