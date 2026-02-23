@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,17 +19,18 @@ import ErrorState from '@/components/ErrorState';
 import LogModal from '@/components/LogModal';
 import AddToListModal from '@/components/AddToListModal';
 import TeamLogo from '@/components/TeamLogo';
-import type { GameWithTeams, GameLogWithGame } from '@/types/database';
+import type { GameWithTeams, GameLogWithGame, BoxScore } from '@/types/database';
 
 interface GameDetail {
   game: GameWithTeams;
   logs: GameLogWithGame[];
   myLog: GameLogWithGame | null;
   communityAvg: number | null;
+  boxScores: BoxScore[];
 }
 
 async function fetchGameDetail(gameId: string, userId: string): Promise<GameDetail> {
-  const [gameRes, logsRes] = await Promise.all([
+  const [gameRes, logsRes, boxRes] = await Promise.all([
     supabase
       .from('games')
       .select(`
@@ -54,6 +55,10 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
       .eq('game_id', gameId)
       .order('logged_at', { ascending: false })
       .limit(20),
+    supabase
+      .from('box_scores')
+      .select('*')
+      .eq('game_id', gameId),
   ]);
 
   if (gameRes.error) throw gameRes.error;
@@ -92,6 +97,7 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
     logs,
     myLog,
     communityAvg,
+    boxScores: (boxRes.data ?? []) as BoxScore[],
   };
 }
 
@@ -102,6 +108,234 @@ function formatDate(dateStr: string) {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+type SortKey = 'points' | 'rebounds' | 'assists' | 'steals' | 'blocks' | 'turnovers' | 'minutes' | 'plus_minus' | 'fgm' | 'tpm' | 'ftm';
+
+function QuarterScoreTable({ game }: { game: GameWithTeams }) {
+  if (game.home_q1 == null) return null;
+
+  const hasOT = game.home_ot != null || game.away_ot != null;
+
+  return (
+    <View className="bg-surface border-b border-border mx-4 mt-3 rounded-2xl p-4">
+      {/* Header */}
+      <View className="flex-row mb-2">
+        <View className="w-14" />
+        {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
+          <Text key={q} className="text-muted text-xs font-semibold w-10 text-center">
+            {q}
+          </Text>
+        ))}
+        {hasOT && (
+          <Text className="text-muted text-xs font-semibold w-10 text-center">OT</Text>
+        )}
+        <Text className="text-muted text-xs font-semibold flex-1 text-center">Final</Text>
+      </View>
+
+      {/* Away row */}
+      <View className="flex-row items-center py-1.5">
+        <Text className="text-white font-bold text-sm w-14">
+          {game.away_team.abbreviation}
+        </Text>
+        {[game.away_q1, game.away_q2, game.away_q3, game.away_q4].map((s, i) => (
+          <Text key={i} className="text-white text-sm w-10 text-center">{s ?? '-'}</Text>
+        ))}
+        {hasOT && (
+          <Text className="text-white text-sm w-10 text-center">{game.away_ot ?? '-'}</Text>
+        )}
+        <Text className="text-accent font-bold text-sm flex-1 text-center">
+          {game.away_team_score}
+        </Text>
+      </View>
+
+      {/* Home row */}
+      <View className="flex-row items-center py-1.5 border-t border-border">
+        <Text className="text-white font-bold text-sm w-14">
+          {game.home_team.abbreviation}
+        </Text>
+        {[game.home_q1, game.home_q2, game.home_q3, game.home_q4].map((s, i) => (
+          <Text key={i} className="text-white text-sm w-10 text-center">{s ?? '-'}</Text>
+        ))}
+        {hasOT && (
+          <Text className="text-white text-sm w-10 text-center">{game.home_ot ?? '-'}</Text>
+        )}
+        <Text className="text-accent font-bold text-sm flex-1 text-center">
+          {game.home_team_score}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const STAT_COLUMNS: { key: SortKey; label: string; width: number }[] = [
+  { key: 'minutes', label: 'MIN', width: 48 },
+  { key: 'points', label: 'PTS', width: 40 },
+  { key: 'rebounds', label: 'REB', width: 40 },
+  { key: 'assists', label: 'AST', width: 40 },
+  { key: 'steals', label: 'STL', width: 40 },
+  { key: 'blocks', label: 'BLK', width: 40 },
+  { key: 'turnovers', label: 'TO', width: 36 },
+  { key: 'fgm', label: 'FG', width: 56 },
+  { key: 'tpm', label: '3PT', width: 52 },
+  { key: 'ftm', label: 'FT', width: 48 },
+  { key: 'plus_minus', label: '+/-', width: 40 },
+];
+
+function formatFraction(made: number | null, attempted: number | null) {
+  if (made == null || attempted == null) return '-';
+  return `${made}-${attempted}`;
+}
+
+function getStatValue(player: BoxScore, key: SortKey): string {
+  if (key === 'fgm') return formatFraction(player.fgm, player.fga);
+  if (key === 'tpm') return formatFraction(player.tpm, player.tpa);
+  if (key === 'ftm') return formatFraction(player.ftm, player.fta);
+  if (key === 'minutes') return player.minutes ?? '-';
+  if (key === 'plus_minus') {
+    const v = player.plus_minus;
+    if (v == null) return '-';
+    return v > 0 ? `+${v}` : `${v}`;
+  }
+  const val = player[key];
+  return val != null ? String(val) : '-';
+}
+
+function getSortNumber(player: BoxScore, key: SortKey): number {
+  if (key === 'minutes') {
+    const m = player.minutes;
+    if (!m) return -1;
+    const parts = m.split(':');
+    return parseInt(parts[0]) * 60 + (parseInt(parts[1]) || 0);
+  }
+  const val = player[key];
+  return typeof val === 'number' ? val : -1;
+}
+
+function BoxScoreSection({ boxScores, game }: { boxScores: BoxScore[]; game: GameWithTeams }) {
+  const [activeTeamId, setActiveTeamId] = useState(game.away_team_id);
+  const [sortKey, setSortKey] = useState<SortKey>('points');
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const teamPlayers = useMemo(() => {
+    const filtered = boxScores.filter((b) => b.team_id === activeTeamId);
+    const starters = filtered.filter((b) => b.starter);
+    const bench = filtered.filter((b) => !b.starter);
+
+    const sortFn = (a: BoxScore, b: BoxScore) => {
+      const aVal = getSortNumber(a, sortKey);
+      const bVal = getSortNumber(b, sortKey);
+      return sortAsc ? aVal - bVal : bVal - aVal;
+    };
+
+    return {
+      starters: starters.sort(sortFn),
+      bench: bench.sort(sortFn),
+    };
+  }, [boxScores, activeTeamId, sortKey, sortAsc]);
+
+  if (boxScores.length === 0) return null;
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortKey(key);
+      setSortAsc(false);
+    }
+  };
+
+  const isAwayActive = activeTeamId === game.away_team_id;
+
+  const renderPlayerRow = (player: BoxScore) => (
+    <View key={player.id} className="flex-row items-center py-2 border-b border-border">
+      <View className="w-28 pr-2">
+        <Text className="text-white text-xs" numberOfLines={1}>
+          {player.player_name}
+        </Text>
+      </View>
+      {STAT_COLUMNS.map((col) => (
+        <View key={col.key} style={{ width: col.width }} className="items-center">
+          <Text className={`text-xs ${col.key === sortKey ? 'text-accent font-semibold' : 'text-muted'}`}>
+            {getStatValue(player, col.key)}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+
+  return (
+    <View className="mx-4 mt-6">
+      <Text className="text-white font-semibold text-base mb-3">Box Score</Text>
+
+      {/* Team toggle */}
+      <View className="flex-row bg-surface rounded-xl mb-3 p-1">
+        <TouchableOpacity
+          className={`flex-1 py-2.5 rounded-lg items-center ${isAwayActive ? 'bg-border' : ''}`}
+          onPress={() => setActiveTeamId(game.away_team_id)}
+          activeOpacity={0.7}
+        >
+          <Text className={`font-semibold text-sm ${isAwayActive ? 'text-white' : 'text-muted'}`}>
+            {game.away_team.abbreviation}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          className={`flex-1 py-2.5 rounded-lg items-center ${!isAwayActive ? 'bg-border' : ''}`}
+          onPress={() => setActiveTeamId(game.home_team_id)}
+          activeOpacity={0.7}
+        >
+          <Text className={`font-semibold text-sm ${!isAwayActive ? 'text-white' : 'text-muted'}`}>
+            {game.home_team.abbreviation}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Scrollable table */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View>
+          {/* Column headers */}
+          <View className="flex-row items-center pb-2 border-b border-border">
+            <View className="w-28 pr-2">
+              <Text className="text-muted text-xs font-semibold">Player</Text>
+            </View>
+            {STAT_COLUMNS.map((col) => (
+              <TouchableOpacity
+                key={col.key}
+                style={{ width: col.width }}
+                className="items-center"
+                onPress={() => handleSort(col.key)}
+                activeOpacity={0.6}
+              >
+                <Text
+                  className={`text-xs font-semibold ${
+                    sortKey === col.key ? 'text-accent' : 'text-muted'
+                  }`}
+                >
+                  {col.label}
+                  {sortKey === col.key ? (sortAsc ? ' ↑' : ' ↓') : ''}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Starters */}
+          {teamPlayers.starters.map(renderPlayerRow)}
+
+          {/* Bench divider */}
+          {teamPlayers.bench.length > 0 && (
+            <View className="py-1.5 border-b border-border">
+              <Text className="text-muted text-xs font-semibold uppercase tracking-wider">
+                Bench
+              </Text>
+            </View>
+          )}
+
+          {/* Bench players */}
+          {teamPlayers.bench.map(renderPlayerRow)}
+        </View>
+      </ScrollView>
+    </View>
+  );
 }
 
 export default function GameDetailScreen() {
@@ -129,7 +363,7 @@ export default function GameDetailScreen() {
     return <ErrorState message="Failed to load game details" onRetry={refetch} />;
   }
 
-  const { game, logs, myLog, communityAvg } = data;
+  const { game, logs, myLog, communityAvg, boxScores } = data;
   const gamePlayedOrLive = game.status === 'final' || game.status === 'live';
 
   return (
@@ -186,6 +420,20 @@ export default function GameDetailScreen() {
             </View>
           </View>
 
+          {/* Arena & Attendance */}
+          {(game.arena || game.attendance) && (
+            <View className="mt-3 items-center">
+              <Text className="text-muted text-xs">
+                {[
+                  game.arena,
+                  game.attendance ? `${game.attendance.toLocaleString()} fans` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' \u00b7 ')}
+              </Text>
+            </View>
+          )}
+
           {/* Community rating */}
           {communityAvg !== null && (
             <View className="mt-4 pt-4 border-t border-border flex-row items-center justify-center gap-2">
@@ -195,6 +443,9 @@ export default function GameDetailScreen() {
             </View>
           )}
         </View>
+
+        {/* Quarter Scores */}
+        <QuarterScoreTable game={game} />
 
         {/* Action Buttons */}
         {gamePlayedOrLive ? (
@@ -229,6 +480,9 @@ export default function GameDetailScreen() {
             </Text>
           </View>
         )}
+
+        {/* Box Score */}
+        <BoxScoreSection boxScores={boxScores} game={game} />
 
         {/* Recent Logs */}
         <View className="px-4 pt-6 pb-4">
