@@ -22,6 +22,7 @@ import FavoriteTeamsModal from '@/components/FavoriteTeamsModal';
 import FavoritePlayersModal from '@/components/FavoritePlayersModal';
 import FollowListModal from '@/components/FollowListModal';
 import TeamLogo from '@/components/TeamLogo';
+import PlayerAvatar from '@/components/PlayerAvatar';
 import { ProfileSkeleton } from '@/components/Skeleton';
 import ErrorState from '@/components/ErrorState';
 import type { GameLogWithGame, UserProfile, List, Team, Player } from '@/types/database';
@@ -302,6 +303,11 @@ export default function ProfileScreen() {
                 onPress={() => router.push(`/player/${player.id}`)}
                 activeOpacity={0.7}
               >
+                <PlayerAvatar
+                  headshot_url={player.headshot_url}
+                  name={`${player.first_name} ${player.last_name}`}
+                  size={20}
+                />
                 {player.team && (
                   <TeamLogo abbreviation={(player.team as Team).abbreviation} size={16} />
                 )}
