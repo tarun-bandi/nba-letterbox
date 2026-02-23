@@ -184,11 +184,48 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
         <Heart size={80} color="#e63946" fill="#e63946" />
       </Animated.View>
 
+        {/* Matchup header strip */}
+        <View className="flex-row items-center justify-center gap-2 mb-3">
+          <TeamLogo abbreviation={game.away_team.abbreviation} size={24} />
+          <Text className="text-white font-bold text-sm">
+            {game.away_team.abbreviation}
+          </Text>
+          {game.home_team_score !== null ? (
+            <>
+              <Text className="text-white font-bold text-base">
+                {game.away_team_score}
+              </Text>
+              <Text className="text-muted text-sm">—</Text>
+              <Text className="text-white font-bold text-base">
+                {game.home_team_score}
+              </Text>
+            </>
+          ) : (
+            <Text className="text-muted text-xs">
+              {formatDate(game.game_date_utc)}
+            </Text>
+          )}
+          <Text className="text-white font-bold text-sm">
+            {game.home_team.abbreviation}
+          </Text>
+          <TeamLogo abbreviation={game.home_team.abbreviation} size={24} />
+          {game.playoff_round && (
+            <View className="ml-1">
+              <PlayoffBadge round={game.playoff_round} />
+            </View>
+          )}
+          {showLoggedBadge && (
+            <View className="bg-accent/20 border border-accent/40 rounded-full px-2 py-0.5 ml-1">
+              <Text className="text-accent text-xs font-medium">Logged</Text>
+            </View>
+          )}
+        </View>
+
         {/* User info (feed mode) */}
         {showUser && log.user_profile && (
           <TouchableOpacity
             onPress={() => router.push(`/user/${log.user_profile!.handle}`)}
-            className="flex-row items-center gap-2 mb-3"
+            className="flex-row items-center gap-2 mb-2"
           >
             <Avatar
               url={log.user_profile.avatar_url}
@@ -203,39 +240,6 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
             </Text>
           </TouchableOpacity>
         )}
-
-        {/* Matchup row */}
-        <View className="flex-row justify-between items-center">
-          <View className="flex-row items-center gap-2">
-            <TeamLogo abbreviation={game.away_team.abbreviation} size={28} />
-            <Text className="text-white font-bold text-lg">
-              {game.away_team.abbreviation}
-            </Text>
-            <Text className="text-muted font-bold text-lg">@</Text>
-            <TeamLogo abbreviation={game.home_team.abbreviation} size={28} />
-            <Text className="text-white font-bold text-lg">
-              {game.home_team.abbreviation}
-            </Text>
-          </View>
-          <View className="flex-row items-center gap-2">
-            {game.playoff_round && <PlayoffBadge round={game.playoff_round} />}
-            {showLoggedBadge && (
-              <View className="bg-accent/20 border border-accent/40 rounded-full px-2 py-0.5">
-                <Text className="text-accent text-xs font-medium">Logged ✓</Text>
-              </View>
-            )}
-            {game.home_team_score !== null && (
-              <Text className="text-muted text-sm font-medium">
-                {game.away_team_score}–{game.home_team_score}
-              </Text>
-            )}
-          </View>
-        </View>
-
-        {/* Date */}
-        <Text className="text-muted text-xs mt-0.5">
-          {formatDate(game.game_date_utc)}
-        </Text>
 
         {/* Rating + watch mode */}
         <View className="flex-row items-center gap-3 mt-3">

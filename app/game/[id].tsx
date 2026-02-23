@@ -22,6 +22,7 @@ import LogModal from '@/components/LogModal';
 import AddToListModal from '@/components/AddToListModal';
 import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
+import RatingHistogram from '@/components/RatingHistogram';
 import type { GameWithTeams, GameLogWithGame, BoxScore } from '@/types/database';
 
 interface GameDetail {
@@ -29,6 +30,7 @@ interface GameDetail {
   logs: GameLogWithGame[];
   myLog: GameLogWithGame | null;
   communityAvg: number | null;
+  allRatings: number[];
   boxScores: BoxScore[];
   isBookmarked: boolean;
   playerNameMap: Record<string, string>; // player_name -> player_id
@@ -97,10 +99,10 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
   const logs = await enrichLogs(logsWithProfiles, userId);
   const myLog = logs.find((l) => l.user_id === userId) ?? null;
 
-  const ratings = logs.filter((l) => l.rating !== null).map((l) => l.rating!);
+  const allRatings = logs.filter((l) => l.rating !== null).map((l) => l.rating!);
   const communityAvg =
-    ratings.length > 0
-      ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) / 10
+    allRatings.length > 0
+      ? Math.round(allRatings.reduce((a, b) => a + b, 0) / allRatings.length) / 10
       : null;
 
   const allBoxScores = (boxRes.data ?? []) as BoxScore[];
@@ -128,6 +130,7 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
     logs,
     myLog,
     communityAvg,
+    allRatings,
     boxScores: allBoxScores,
     isBookmarked: !!watchlistRes.data,
     playerNameMap,
@@ -144,62 +147,6 @@ function formatDate(dateStr: string) {
 }
 
 type SortKey = 'points' | 'rebounds' | 'assists' | 'steals' | 'blocks' | 'turnovers' | 'minutes' | 'plus_minus' | 'fgm' | 'tpm' | 'ftm';
-
-function QuarterScoreTable({ game }: { game: GameWithTeams }) {
-  if (game.home_q1 == null) return null;
-
-  const hasOT = game.home_ot != null || game.away_ot != null;
-
-  return (
-    <View className="bg-surface border-b border-border mx-4 mt-3 rounded-2xl p-4">
-      {/* Header */}
-      <View className="flex-row mb-2">
-        <View className="w-14" />
-        {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
-          <Text key={q} className="text-muted text-xs font-semibold w-10 text-center">
-            {q}
-          </Text>
-        ))}
-        {hasOT && (
-          <Text className="text-muted text-xs font-semibold w-10 text-center">OT</Text>
-        )}
-        <Text className="text-muted text-xs font-semibold flex-1 text-center">Final</Text>
-      </View>
-
-      {/* Away row */}
-      <View className="flex-row items-center py-1.5">
-        <Text className="text-white font-bold text-sm w-14">
-          {game.away_team.abbreviation}
-        </Text>
-        {[game.away_q1, game.away_q2, game.away_q3, game.away_q4].map((s, i) => (
-          <Text key={i} className="text-white text-sm w-10 text-center">{s ?? '-'}</Text>
-        ))}
-        {hasOT && (
-          <Text className="text-white text-sm w-10 text-center">{game.away_ot ?? '-'}</Text>
-        )}
-        <Text className="text-accent font-bold text-sm flex-1 text-center">
-          {game.away_team_score}
-        </Text>
-      </View>
-
-      {/* Home row */}
-      <View className="flex-row items-center py-1.5 border-t border-border">
-        <Text className="text-white font-bold text-sm w-14">
-          {game.home_team.abbreviation}
-        </Text>
-        {[game.home_q1, game.home_q2, game.home_q3, game.home_q4].map((s, i) => (
-          <Text key={i} className="text-white text-sm w-10 text-center">{s ?? '-'}</Text>
-        ))}
-        {hasOT && (
-          <Text className="text-white text-sm w-10 text-center">{game.home_ot ?? '-'}</Text>
-        )}
-        <Text className="text-accent font-bold text-sm flex-1 text-center">
-          {game.home_team_score}
-        </Text>
-      </View>
-    </View>
-  );
-}
 
 const STAT_COLUMNS: { key: SortKey; label: string; width: number }[] = [
   { key: 'minutes', label: 'MIN', width: 48 },
@@ -268,7 +215,13 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
     };
   }, [boxScores, activeTeamId, sortKey, sortAsc]);
 
-  if (boxScores.length === 0) return null;
+  if (boxScores.length === 0) {
+    return (
+      <View className="items-center py-8">
+        <Text className="text-muted text-sm">Box score not available</Text>
+      </View>
+    );
+  }
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -306,9 +259,7 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
   };
 
   return (
-    <View className="mx-4 mt-6">
-      <Text className="text-white font-semibold text-base mb-3">Box Score</Text>
-
+    <View className="mx-4 mt-4">
       {/* Team toggle */}
       <View className="flex-row bg-surface rounded-xl mb-3 p-1 self-start">
         <TouchableOpacity
@@ -381,6 +332,160 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
   );
 }
 
+function QuarterScoreTable({ game }: { game: GameWithTeams }) {
+  if (game.home_q1 == null) return null;
+
+  const hasOT = game.home_ot != null || game.away_ot != null;
+
+  return (
+    <View className="bg-surface border border-border mx-4 mt-4 rounded-2xl p-4">
+      {/* Header */}
+      <View className="flex-row mb-2">
+        <View className="w-14" />
+        {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
+          <Text key={q} className="text-muted text-xs font-semibold w-10 text-center">
+            {q}
+          </Text>
+        ))}
+        {hasOT && (
+          <Text className="text-muted text-xs font-semibold w-10 text-center">OT</Text>
+        )}
+        <Text className="text-muted text-xs font-semibold flex-1 text-center">Final</Text>
+      </View>
+
+      {/* Away row */}
+      <View className="flex-row items-center py-1.5">
+        <Text className="text-white font-bold text-sm w-14">
+          {game.away_team.abbreviation}
+        </Text>
+        {[game.away_q1, game.away_q2, game.away_q3, game.away_q4].map((s, i) => (
+          <Text key={i} className="text-white text-sm w-10 text-center">{s ?? '-'}</Text>
+        ))}
+        {hasOT && (
+          <Text className="text-white text-sm w-10 text-center">{game.away_ot ?? '-'}</Text>
+        )}
+        <Text className="text-accent font-bold text-sm flex-1 text-center">
+          {game.away_team_score}
+        </Text>
+      </View>
+
+      {/* Home row */}
+      <View className="flex-row items-center py-1.5 border-t border-border">
+        <Text className="text-white font-bold text-sm w-14">
+          {game.home_team.abbreviation}
+        </Text>
+        {[game.home_q1, game.home_q2, game.home_q3, game.home_q4].map((s, i) => (
+          <Text key={i} className="text-white text-sm w-10 text-center">{s ?? '-'}</Text>
+        ))}
+        {hasOT && (
+          <Text className="text-white text-sm w-10 text-center">{game.home_ot ?? '-'}</Text>
+        )}
+        <Text className="text-accent font-bold text-sm flex-1 text-center">
+          {game.home_team_score}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function TeamComparisonStats({ boxScores, game }: { boxScores: BoxScore[]; game: GameWithTeams }) {
+  const awayPlayers = boxScores.filter((b) => b.team_id === game.away_team_id);
+  const homePlayers = boxScores.filter((b) => b.team_id === game.home_team_id);
+
+  if (awayPlayers.length === 0 && homePlayers.length === 0) return null;
+
+  const sum = (players: BoxScore[], key: keyof BoxScore) =>
+    players.reduce((acc, p) => acc + ((p[key] as number) ?? 0), 0);
+
+  const pct = (made: number, attempted: number) =>
+    attempted > 0 ? ((made / attempted) * 100).toFixed(1) + '%' : '-';
+
+  const awayFgm = sum(awayPlayers, 'fgm');
+  const awayFga = sum(awayPlayers, 'fga');
+  const homeFgm = sum(homePlayers, 'fgm');
+  const homeFga = sum(homePlayers, 'fga');
+  const awayTpm = sum(awayPlayers, 'tpm');
+  const awayTpa = sum(awayPlayers, 'tpa');
+  const homeTpm = sum(homePlayers, 'tpm');
+  const homeTpa = sum(homePlayers, 'tpa');
+
+  const stats = [
+    { label: 'Total Rebounds', away: sum(awayPlayers, 'rebounds'), home: sum(homePlayers, 'rebounds') },
+    { label: 'Assists', away: sum(awayPlayers, 'assists'), home: sum(homePlayers, 'assists') },
+    { label: 'Steals', away: sum(awayPlayers, 'steals'), home: sum(homePlayers, 'steals') },
+    { label: 'Blocks', away: sum(awayPlayers, 'blocks'), home: sum(homePlayers, 'blocks') },
+    { label: 'Turnovers', away: sum(awayPlayers, 'turnovers'), home: sum(homePlayers, 'turnovers') },
+    { label: 'FG%', away: pct(awayFgm, awayFga), home: pct(homeFgm, homeFga), isString: true },
+    { label: '3P%', away: pct(awayTpm, awayTpa), home: pct(homeTpm, homeTpa), isString: true },
+  ];
+
+  return (
+    <View className="mx-4 mt-4 bg-surface border border-border rounded-2xl p-4">
+      {/* Header */}
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-accent font-bold text-sm w-16 text-center">
+          {game.away_team.abbreviation}
+        </Text>
+        <Text className="text-muted text-xs font-semibold flex-1 text-center">Team Stats</Text>
+        <Text className="text-accent font-bold text-sm w-16 text-center">
+          {game.home_team.abbreviation}
+        </Text>
+      </View>
+      {stats.map((stat) => {
+        const awayVal = stat.isString ? stat.away : stat.away;
+        const homeVal = stat.isString ? stat.home : stat.home;
+        const awayHigher = !stat.isString && (stat.away as number) > (stat.home as number);
+        const homeHigher = !stat.isString && (stat.home as number) > (stat.away as number);
+        // For turnovers, lower is better
+        const isTurnovers = stat.label === 'Turnovers';
+        const awayBold = isTurnovers ? homeHigher : awayHigher;
+        const homeBold = isTurnovers ? awayHigher : homeHigher;
+
+        return (
+          <View key={stat.label} className="flex-row items-center justify-between py-1.5 border-t border-border">
+            <Text className={`text-sm w-16 text-center ${awayBold ? 'text-white font-bold' : 'text-muted'}`}>
+              {String(awayVal)}
+            </Text>
+            <Text className="text-muted text-xs flex-1 text-center">{stat.label}</Text>
+            <Text className={`text-sm w-16 text-center ${homeBold ? 'text-white font-bold' : 'text-muted'}`}>
+              {String(homeVal)}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function DetailsSection({ game }: { game: GameWithTeams }) {
+  const details: { label: string; value: string }[] = [];
+
+  details.push({ label: 'Date', value: formatDate(game.game_date_utc) });
+
+  if (game.arena) details.push({ label: 'Arena', value: game.arena });
+  if (game.attendance) details.push({ label: 'Attendance', value: game.attendance.toLocaleString() });
+
+  const season = game.season;
+  if (season) {
+    const nextYear = (season.year + 1) % 100;
+    details.push({ label: 'Season', value: `${season.year}-${nextYear.toString().padStart(2, '0')}` });
+  }
+
+  if (game.postseason) details.push({ label: 'Type', value: 'Playoffs' });
+  if (game.playoff_round) details.push({ label: 'Round', value: game.playoff_round.replace(/_/g, ' ') });
+
+  return (
+    <View className="mx-4 mt-4 bg-surface border border-border rounded-2xl p-4">
+      {details.map((item, i) => (
+        <View key={item.label} className={`flex-row justify-between py-2.5 ${i > 0 ? 'border-t border-border' : ''}`}>
+          <Text className="text-muted text-sm">{item.label}</Text>
+          <Text className="text-white text-sm font-medium">{item.value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function getHighlightsUrl(game: GameWithTeams): string {
   if (game.highlights_url) return game.highlights_url;
   const d = new Date(game.game_date_utc);
@@ -391,12 +496,24 @@ function getHighlightsUrl(game: GameWithTeams): string {
   return `https://www.youtube.com/results?search_query=${query}`;
 }
 
+type GameTab = 'box_score' | 'reviews' | 'stats' | 'details';
+const TABS: { key: GameTab; label: string }[] = [
+  { key: 'box_score', label: 'Box Score' },
+  { key: 'reviews', label: 'Reviews' },
+  { key: 'stats', label: 'Stats' },
+  { key: 'details', label: 'Details' },
+];
+
+type ReviewSort = 'recent' | 'popular';
+
 export default function GameDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [showLogModal, setShowLogModal] = useState(false);
   const [showListModal, setShowListModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<GameTab>('box_score');
+  const [reviewSort, setReviewSort] = useState<ReviewSort>('recent');
 
   const bookmarkMutation = useMutation({
     mutationFn: async (bookmarked: boolean) => {
@@ -439,6 +556,15 @@ export default function GameDetailScreen() {
     enabled: !!id && !!user,
   });
 
+  const sortedLogs = useMemo(() => {
+    if (!data) return [];
+    const logs = [...data.logs];
+    if (reviewSort === 'popular') {
+      logs.sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0));
+    }
+    return logs;
+  }, [data?.logs, reviewSort]);
+
   if (isLoading) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
@@ -451,7 +577,7 @@ export default function GameDetailScreen() {
     return <ErrorState message="Failed to load game details" onRetry={refetch} />;
   }
 
-  const { game, logs, myLog, communityAvg, boxScores, isBookmarked, playerNameMap } = data;
+  const { game, logs, myLog, communityAvg, allRatings, boxScores, isBookmarked, playerNameMap } = data;
   const gamePlayedOrLive = game.status === 'final' || game.status === 'live';
 
   return (
@@ -513,32 +639,18 @@ export default function GameDetailScreen() {
             </View>
           </View>
 
-          {/* Arena & Attendance */}
-          {(game.arena || game.attendance) && (
-            <View className="mt-3 items-center">
-              <Text className="text-muted text-xs">
-                {[
-                  game.arena,
-                  game.attendance ? `${game.attendance.toLocaleString()} fans` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' \u00b7 ')}
-              </Text>
-            </View>
-          )}
-
-          {/* Community rating */}
+          {/* Community rating + histogram */}
           {communityAvg !== null && (
-            <View className="mt-4 pt-4 border-t border-border flex-row items-center justify-center gap-2">
-              <Text className="text-muted text-sm">Community avg</Text>
-              <Text className="text-accent font-semibold">{communityAvg.toFixed(1)}</Text>
-              <Text className="text-muted text-sm">({logs.length} {logs.length === 1 ? 'log' : 'logs'})</Text>
+            <View className="mt-4 pt-4 border-t border-border">
+              <View className="flex-row items-center justify-center gap-2">
+                <Text className="text-muted text-sm">Community avg</Text>
+                <Text className="text-accent font-semibold">{communityAvg.toFixed(1)}</Text>
+                <Text className="text-muted text-sm">({logs.length} {logs.length === 1 ? 'log' : 'logs'})</Text>
+              </View>
+              <RatingHistogram ratings={allRatings} />
             </View>
           )}
         </View>
-
-        {/* Quarter Scores */}
-        <QuarterScoreTable game={game} />
 
         {/* Action Buttons */}
         {gamePlayedOrLive ? (
@@ -602,24 +714,84 @@ export default function GameDetailScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Box Score */}
-        <BoxScoreSection boxScores={boxScores} game={game} playerNameMap={playerNameMap} />
+        {/* Tab Bar */}
+        <View className="flex-row mx-4 mt-4 bg-surface rounded-xl p-1">
+          {TABS.map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              className="flex-1 py-2.5 rounded-lg items-center"
+              style={activeTab === tab.key ? { backgroundColor: '#c9a84c' } : undefined}
+              activeOpacity={0.7}
+            >
+              <Text
+                className={`text-xs font-semibold ${
+                  activeTab === tab.key ? 'text-background' : 'text-muted'
+                }`}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-        {/* Recent Logs */}
-        <View className="px-4 pt-6 pb-4">
-          <Text className="text-white font-semibold text-base mb-3">
-            Recent Reviews
-          </Text>
-          {logs.length === 0 ? (
-            <View className="items-center py-8">
-              <Text style={{ fontSize: 40 }} className="mb-2">✍️</Text>
-              <Text className="text-white font-semibold mb-1">No reviews yet</Text>
-              <Text className="text-muted text-sm">Be the first to log this game!</Text>
+        {/* Tab Content */}
+        <View className="pb-8">
+          {activeTab === 'box_score' && (
+            <BoxScoreSection boxScores={boxScores} game={game} playerNameMap={playerNameMap} />
+          )}
+
+          {activeTab === 'reviews' && (
+            <View className="px-4 pt-4">
+              {/* Sort toggle */}
+              {logs.length > 1 && (
+                <View className="flex-row bg-surface rounded-xl p-1 self-start mb-3">
+                  <TouchableOpacity
+                    className="py-2 px-4 rounded-lg"
+                    style={reviewSort === 'recent' ? { backgroundColor: '#c9a84c' } : undefined}
+                    onPress={() => setReviewSort('recent')}
+                    activeOpacity={0.7}
+                  >
+                    <Text className={`text-xs font-semibold ${reviewSort === 'recent' ? 'text-background' : 'text-muted'}`}>
+                      Recent
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="py-2 px-4 rounded-lg"
+                    style={reviewSort === 'popular' ? { backgroundColor: '#c9a84c' } : undefined}
+                    onPress={() => setReviewSort('popular')}
+                    activeOpacity={0.7}
+                  >
+                    <Text className={`text-xs font-semibold ${reviewSort === 'popular' ? 'text-background' : 'text-muted'}`}>
+                      Popular
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {sortedLogs.length === 0 ? (
+                <View className="items-center py-8">
+                  <Text style={{ fontSize: 40 }} className="mb-2">✍️</Text>
+                  <Text className="text-white font-semibold mb-1">No reviews yet</Text>
+                  <Text className="text-muted text-sm">Be the first to log this game!</Text>
+                </View>
+              ) : (
+                sortedLogs.map((log) => (
+                  <GameCard key={log.id} log={log} showUser />
+                ))
+              )}
             </View>
-          ) : (
-            logs.map((log) => (
-              <GameCard key={log.id} log={log} showUser />
-            ))
+          )}
+
+          {activeTab === 'stats' && (
+            <>
+              <QuarterScoreTable game={game} />
+              <TeamComparisonStats boxScores={boxScores} game={game} />
+            </>
+          )}
+
+          {activeTab === 'details' && (
+            <DetailsSection game={game} />
           )}
         </View>
       </ScrollView>

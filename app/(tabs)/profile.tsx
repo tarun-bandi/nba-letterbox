@@ -23,6 +23,7 @@ import FavoritePlayersModal from '@/components/FavoritePlayersModal';
 import FollowListModal from '@/components/FollowListModal';
 import TeamLogo from '@/components/TeamLogo';
 import PlayerAvatar from '@/components/PlayerAvatar';
+import DiaryCalendar from '@/components/DiaryCalendar';
 import { ProfileSkeleton } from '@/components/Skeleton';
 import ErrorState from '@/components/ErrorState';
 import type { GameLogWithGame, UserProfile, List, Team, Player } from '@/types/database';
@@ -228,6 +229,14 @@ export default function ProfileScreen() {
           <Text className="text-accent font-semibold text-sm">View Stats</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Diary */}
+      {user && (
+        <View className="px-4 pt-4">
+          <Text className="text-white font-semibold text-base mb-3">Diary</Text>
+          <DiaryCalendar userId={user.id} />
+        </View>
+      )}
 
       {/* Favorite Teams */}
       <View className="px-4 pt-4">
