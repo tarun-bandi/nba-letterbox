@@ -36,6 +36,13 @@ ABBREV_TO_BREF = {
     "CHA": "CHO",
 }
 
+# Current 30 NBA teams — skip defunct/inactive franchises from the API
+ACTIVE_TEAMS = {
+    "ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DAL", "DEN", "DET", "GSW",
+    "HOU", "IND", "LAC", "LAL", "MEM", "MIA", "MIL", "MIN", "NOP", "NYK",
+    "OKC", "ORL", "PHI", "PHX", "POR", "SAC", "SAS", "TOR", "UTA", "WAS",
+}
+
 HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh)"}
 RATE_LIMIT_SECONDS = 3.5
 
@@ -225,6 +232,12 @@ def scrape_rosters(season: int, team_filter: str | None):
             print(f"Team '{team_filter}' not found. Available: {sorted(teams.keys())}")
             sys.exit(1)
         teams = {team_filter: teams[team_filter]}
+    else:
+        # Filter out inactive/defunct franchises
+        skipped = sorted(set(teams.keys()) - ACTIVE_TEAMS)
+        if skipped:
+            print(f"Skipping inactive teams: {', '.join(skipped)}")
+        teams = {k: v for k, v in teams.items() if k in ACTIVE_TEAMS}
 
     print(f"Scraping rosters for {len(teams)} team(s), season {season}-{str(season+1)[-2:]}...")
 
