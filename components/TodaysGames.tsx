@@ -133,7 +133,7 @@ export default function TodaysGames() {
                   <View className="flex-row items-center gap-1">
                     <View className="w-2 h-2 rounded-full bg-accent-red" />
                     <Text className="text-accent-red text-xs font-bold">
-                      LIVE
+                      In Progress
                     </Text>
                   </View>
                 ) : isFinal ? (
