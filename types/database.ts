@@ -9,6 +9,7 @@ export type Json =
 export type SeasonType = 'regular' | 'playoffs';
 export type GameStatus = 'scheduled' | 'live' | 'final';
 export type WatchMode = 'live' | 'replay' | 'condensed' | 'highlights';
+export type PlayoffRound = 'first_round' | 'conf_semis' | 'conf_finals' | 'finals';
 
 export interface Database {
   public: {
@@ -166,6 +167,7 @@ export interface Database {
           period: number | null;
           time: string | null;
           postseason: boolean;
+          playoff_round: PlayoffRound | null;
           home_q1: number | null;
           home_q2: number | null;
           home_q3: number | null;
@@ -178,6 +180,7 @@ export interface Database {
           away_ot: number | null;
           arena: string | null;
           attendance: number | null;
+          highlights_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -195,6 +198,7 @@ export interface Database {
           period?: number | null;
           time?: string | null;
           postseason?: boolean;
+          playoff_round?: PlayoffRound | null;
           home_q1?: number | null;
           home_q2?: number | null;
           home_q3?: number | null;
@@ -207,6 +211,7 @@ export interface Database {
           away_ot?: number | null;
           arena?: string | null;
           attendance?: number | null;
+          highlights_url?: string | null;
         };
         Update: {
           home_team_score?: number | null;
@@ -226,6 +231,8 @@ export interface Database {
           away_ot?: number | null;
           arena?: string | null;
           attendance?: number | null;
+          highlights_url?: string | null;
+          playoff_round?: PlayoffRound | null;
           updated_at?: string;
         };
       };

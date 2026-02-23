@@ -82,8 +82,7 @@ def fetch_games_without_box_scores(season_year: int, days: int | None, limit: in
         query = query.gte("game_date_utc", cutoff)
 
     query = query.order("game_date_utc", desc=False)
-    if limit:
-        query = query.limit(limit)
+    query = query.limit(limit if limit else 2000)
 
     res = query.execute()
     return res.data or []
@@ -197,6 +196,23 @@ def parse_quarter_scores(soup):
             result[f"{prefix}_ot"] = None
 
     return result
+
+
+def parse_playoff_round(soup):
+    """Parse playoff round from page title."""
+    title_tag = soup.find("title")
+    if not title_tag:
+        return None
+    title = title_tag.get_text().lower()
+    if "first round" in title:
+        return "first_round"
+    if "conference semifinals" in title:
+        return "conf_semis"
+    if "conference finals" in title:
+        return "conf_finals"
+    if "nba finals" in title:
+        return "finals"
+    return None
 
 
 def parse_arena_attendance(soup):
@@ -333,6 +349,10 @@ def scrape_game(game: dict):
         update_data.update({k: v for k, v in quarter_data.items() if v is not None})
 
     arena, attendance = parse_arena_attendance(soup)
+    playoff_round = parse_playoff_round(soup)
+    if playoff_round:
+        update_data["playoff_round"] = playoff_round
+
     if arena:
         update_data["arena"] = arena
     if attendance:
@@ -348,22 +368,81 @@ def scrape_game(game: dict):
     return True
 
 
+def backfill_playoff_rounds(season_year: int, limit: int | None):
+    """Re-scrape playoff games that are missing playoff_round."""
+    season_res = supabase.table("seasons").select("id").eq("year", season_year).execute()
+    if not season_res.data:
+        print(f"No season found for year {season_year}")
+        sys.exit(1)
+    season_ids = [s["id"] for s in season_res.data]
+
+    query = (
+        supabase.table("games")
+        .select(
+            "id, game_date_utc, home_team_id, away_team_id, "
+            "home_team:teams!games_home_team_id_fkey(id, abbreviation), "
+            "away_team:teams!games_away_team_id_fkey(id, abbreviation)"
+        )
+        .eq("postseason", True)
+        .is_("playoff_round", "null")
+        .not_.is_("home_q1", "null")  # already scraped
+        .in_("season_id", season_ids)
+        .order("game_date_utc", desc=False)
+        .limit(limit if limit else 2000)
+    )
+
+    res = query.execute()
+    games = res.data or []
+    print(f"Found {len(games)} playoff games to backfill")
+
+    success = 0
+    for game in games:
+        home_team = game["home_team"]
+        home_abbrev = home_team["abbreviation"]
+        game_date = game["game_date_utc"]
+        game_id = game["id"]
+
+        print(f"\nBackfilling {game_id} ({game_date[:10]})...")
+        time.sleep(3.5)
+        soup, url = fetch_game_page(home_abbrev, game_date)
+        if not soup:
+            continue
+
+        playoff_round = parse_playoff_round(soup)
+        if playoff_round:
+            try:
+                supabase.table("games").update({"playoff_round": playoff_round}).eq("id", game_id).execute()
+                print(f"  Set playoff_round = {playoff_round}")
+                success += 1
+            except Exception as e:
+                print(f"  Error updating: {e}")
+        else:
+            print("  No playoff round found in title")
+
+    print(f"\nDone! Backfilled {success}/{len(games)} games.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Scrape NBA box scores from Basketball Reference")
     parser.add_argument("--season", type=int, required=True, help="Season year (e.g. 2024 for 2024-25)")
     parser.add_argument("--days", type=int, default=None, help="Only scrape games from last N days")
     parser.add_argument("--limit", type=int, default=None, help="Max number of games to scrape")
+    parser.add_argument("--backfill-playoffs", action="store_true",
+                        help="Re-scrape playoff games missing playoff_round")
     args = parser.parse_args()
 
-    games = fetch_games_without_box_scores(args.season, args.days, args.limit)
-    print(f"Found {len(games)} games to scrape")
+    if args.backfill_playoffs:
+        backfill_playoff_rounds(args.season, args.limit)
+    else:
+        games = fetch_games_without_box_scores(args.season, args.days, args.limit)
+        print(f"Found {len(games)} games to scrape")
 
-    success = 0
-    for game in games:
-        if scrape_game(game):
-            success += 1
+        success = 0
+        for game in games:
+            if scrape_game(game):
+                success += 1
 
-    print(f"\nDone! Scraped {success}/{len(games)} games successfully.")
+        print(f"\nDone! Scraped {success}/{len(games)} games successfully.")
 
 
 if __name__ == "__main__":

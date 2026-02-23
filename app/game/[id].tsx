@@ -7,18 +7,20 @@ import {
   ActivityIndicator,
   RefreshControl,
   Keyboard,
+  Linking,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
-import { List } from 'lucide-react-native';
+import { List, Play } from 'lucide-react-native';
 import GameCard from '@/components/GameCard';
 import ErrorState from '@/components/ErrorState';
 import LogModal from '@/components/LogModal';
 import AddToListModal from '@/components/AddToListModal';
 import TeamLogo from '@/components/TeamLogo';
+import PlayoffBadge from '@/components/PlayoffBadge';
 import type { GameWithTeams, GameLogWithGame, BoxScore } from '@/types/database';
 
 interface GameDetail {
@@ -338,6 +340,16 @@ function BoxScoreSection({ boxScores, game }: { boxScores: BoxScore[]; game: Gam
   );
 }
 
+function getHighlightsUrl(game: GameWithTeams): string {
+  if (game.highlights_url) return game.highlights_url;
+  const d = new Date(game.game_date_utc);
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  const day = d.getDate();
+  const year = d.getFullYear();
+  const query = `NBA+${game.away_team.abbreviation}+vs+${game.home_team.abbreviation}+${month}+${day}+${year}+highlights`;
+  return `https://www.youtube.com/results?search_query=${query}`;
+}
+
 export default function GameDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuthStore();
@@ -401,6 +413,11 @@ export default function GameDetailScreen() {
               <Text className="text-muted text-xs uppercase tracking-wider">
                 {game.status === 'final' ? 'Final' : game.status}
               </Text>
+              {game.playoff_round && (
+                <View className="mt-1">
+                  <PlayoffBadge round={game.playoff_round} size="md" />
+                </View>
+              )}
               <Text className="text-border text-2xl font-light mt-1">@</Text>
               <Text className="text-muted text-xs mt-1">
                 {formatDate(game.game_date_utc)}
@@ -479,6 +496,18 @@ export default function GameDetailScreen() {
               Game hasn't started yet
             </Text>
           </View>
+        )}
+
+        {/* Watch Highlights */}
+        {game.status === 'final' && (
+          <TouchableOpacity
+            className="mx-4 mt-3 bg-surface border border-border rounded-xl py-4 flex-row items-center justify-center gap-2"
+            onPress={() => Linking.openURL(getHighlightsUrl(game))}
+            activeOpacity={0.8}
+          >
+            <Play size={18} color="#c9a84c" />
+            <Text className="text-accent font-semibold text-base">Watch Highlights</Text>
+          </TouchableOpacity>
         )}
 
         {/* Box Score */}
