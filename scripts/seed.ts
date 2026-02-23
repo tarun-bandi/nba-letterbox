@@ -186,7 +186,9 @@ interface BdlGamesResponse {
 function mapStatus(status: string): 'scheduled' | 'live' | 'final' {
   const s = status.toLowerCase();
   if (s === 'final' || s.startsWith('final/')) return 'final';
-  if (s.includes(':') || s.includes('q') || s.includes('half')) return 'live';
+  // Quarter indicators (e.g. "Q1", "Q3 5:20") or halftime mean the game is live.
+  // Avoid matching scheduled times like "7:00 PM ET" which also contain colons.
+  if (/\bq\d/.test(s) || s.includes('half') || s.includes('ot')) return 'live';
   return 'scheduled';
 }
 
