@@ -298,16 +298,12 @@ export default function SearchScreen() {
                 setPickingOpponent(false);
               }
             }}
-            className={`px-4 py-1.5 rounded-full border ${
-              searchMode === mode
-                ? 'bg-accent border-accent'
-                : 'bg-background border-border'
-            }`}
+            className="px-4 py-1.5 rounded-full border border-border bg-background"
+            style={searchMode === mode ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
           >
             <Text
-              className={`text-sm font-medium capitalize ${
-                searchMode === mode ? 'text-background' : 'text-muted'
-              }`}
+              className="text-sm font-medium capitalize text-muted"
+              style={searchMode === mode ? { color: '#0a0a0a' } : undefined}
             >
               {mode}
             </Text>
@@ -340,22 +336,18 @@ export default function SearchScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              className="px-4 pb-2"
+              className="px-4 py-2"
               contentContainerStyle={{ gap: 6, alignItems: 'center' }}
               style={{ flexGrow: 0 }}
             >
               <TouchableOpacity
                 onPress={() => setSelectedSeasonId(null)}
-                className={`px-3 py-1.5 rounded-full border ${
-                  selectedSeasonId === null
-                    ? 'bg-accent border-accent'
-                    : 'bg-background border-border'
-                }`}
+                className="px-3 py-1.5 rounded-full border border-border bg-background"
+                style={selectedSeasonId === null ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
               >
                 <Text
-                  className={`text-sm font-medium ${
-                    selectedSeasonId === null ? 'text-background' : 'text-muted'
-                  }`}
+                  className="text-sm font-medium text-muted"
+                  style={selectedSeasonId === null ? { color: '#0a0a0a' } : undefined}
                 >
                   All
                 </Text>
@@ -364,16 +356,12 @@ export default function SearchScreen() {
                 <TouchableOpacity
                   key={season.id}
                   onPress={() => setSelectedSeasonId(season.id)}
-                  className={`px-3 py-1.5 rounded-full border ${
-                    selectedSeasonId === season.id
-                      ? 'bg-accent border-accent'
-                      : 'bg-background border-border'
-                  }`}
+                  className="px-3 py-1.5 rounded-full border border-border bg-background"
+                  style={selectedSeasonId === season.id ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
                 >
                   <Text
-                    className={`text-sm font-medium ${
-                      selectedSeasonId === season.id ? 'text-background' : 'text-muted'
-                    }`}
+                    className="text-sm font-medium text-muted"
+                    style={selectedSeasonId === season.id ? { color: '#0a0a0a' } : undefined}
                   >
                     {formatSeasonLabel(season.year)}
                   </Text>
