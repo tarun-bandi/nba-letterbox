@@ -107,9 +107,8 @@ def load_season(year: int):
 
 def fetch_roster_page(bref_abbrev: str, season: int):
     """Fetch the team roster page. season=2025 means 2024-25 season, URL uses 2025."""
-    # Basketball Reference URL uses the ending year of the season
-    url_year = season + 1
-    url = f"https://www.basketball-reference.com/teams/{bref_abbrev}/{url_year}.html"
+    # Basketball Reference URL already uses the ending year (e.g. /teams/MIA/2025.html = 2024-25)
+    url = f"https://www.basketball-reference.com/teams/{bref_abbrev}/{season}.html"
 
     resp = requests.get(url, headers=HEADERS)
     if resp.status_code != 200:
@@ -258,7 +257,8 @@ def scrape_rosters(season: int, team_filter: str | None):
         full = np["full_name"]
         nba_name_map[full.lower()] = np["id"]
 
-    upsert_rows = []
+    # Deduplicate by provider_player_id (keep last occurrence, i.e. most recent team)
+    seen = {}
     for p in all_players:
         full_name = f"{p['first_name']} {p['last_name']}"
         person_id = nba_name_map.get(full_name.lower())
@@ -268,7 +268,7 @@ def scrape_rosters(season: int, team_filter: str | None):
             else None
         )
 
-        upsert_rows.append({
+        row = {
             "provider": "bref",
             "provider_player_id": slug_to_provider_id(p["slug"]),
             "first_name": p["first_name"],
@@ -281,7 +281,10 @@ def scrape_rosters(season: int, team_filter: str | None):
             "college": p["college"],
             "country": p["country"],
             "headshot_url": headshot_url,
-        })
+        }
+        seen[row["provider_player_id"]] = row
+
+    upsert_rows = list(seen.values())
 
     try:
         supabase.table("players").upsert(
