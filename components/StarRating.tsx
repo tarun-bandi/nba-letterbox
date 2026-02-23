@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 const GOLD = '#c9a84c';
@@ -21,14 +21,16 @@ function StarGlyph({
   size: number;
 }) {
   const fontSize = size * 0.95;
+  // Web renders the ★ glyph with different metrics; use a taller lineHeight
+  const lh = Platform.OS === 'web' ? size * 1.2 : size;
 
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
       {/* Gray base star */}
       <Text
         style={{
           fontSize,
-          lineHeight: size,
+          lineHeight: lh,
           color: EMPTY,
           position: 'absolute',
         }}
@@ -50,7 +52,7 @@ function StarGlyph({
           <Text
             style={{
               fontSize,
-              lineHeight: size,
+              lineHeight: lh,
               color: GOLD,
               width: size,
               textAlign: 'center',
