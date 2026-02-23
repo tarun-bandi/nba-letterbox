@@ -397,6 +397,19 @@ export interface Database {
         };
         Update: Record<string, never>;
       };
+      watchlist: {
+        Row: {
+          user_id: string;
+          game_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          game_id: string;
+          created_at?: string;
+        };
+        Update: Record<string, never>;
+      };
       box_scores: {
         Row: {
           id: string;
@@ -510,6 +523,8 @@ export type Comment = Database['public']['Tables']['comments']['Row'];
 export type List = Database['public']['Tables']['lists']['Row'];
 export type ListItem = Database['public']['Tables']['list_items']['Row'];
 export type BoxScore = Database['public']['Tables']['box_scores']['Row'];
+export type Watchlist = Database['public']['Tables']['watchlist']['Row'];
+export type FavoritePlayer = Database['public']['Tables']['user_favorite_players']['Row'];
 
 // Joined types used in UI
 export type GameWithTeams = Game & {

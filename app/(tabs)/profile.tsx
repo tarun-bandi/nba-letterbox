@@ -5,25 +5,26 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  RefreshControl,
 } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Pencil } from 'lucide-react-native';
+import { Pencil, Settings, BarChart3 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useRouter } from 'expo-router';
-import { Plus, Lock, Heart } from 'lucide-react-native';
+import { Plus, Lock, Heart, Bookmark, ChevronRight } from 'lucide-react-native';
 import Avatar from '@/components/Avatar';
 import GameCard from '@/components/GameCard';
 import EditProfileModal from '@/components/EditProfileModal';
 import CreateListModal from '@/components/CreateListModal';
 import FavoriteTeamsModal from '@/components/FavoriteTeamsModal';
+import FavoritePlayersModal from '@/components/FavoritePlayersModal';
 import FollowListModal from '@/components/FollowListModal';
 import TeamLogo from '@/components/TeamLogo';
 import { ProfileSkeleton } from '@/components/Skeleton';
 import ErrorState from '@/components/ErrorState';
-import type { GameLogWithGame, UserProfile, List, Team } from '@/types/database';
+import type { GameLogWithGame, UserProfile, List, Team, Player } from '@/types/database';
 
 interface ProfileData {
   profile: UserProfile;
@@ -31,12 +32,14 @@ interface ProfileData {
   stats: { count: number; avgRating: number | null };
   lists: List[];
   favoriteTeams: Team[];
+  favoritePlayers: (Player & { team: Team | null })[];
   followerCount: number;
   followingCount: number;
+  watchlistCount: number;
 }
 
 async function fetchProfile(userId: string): Promise<ProfileData> {
-  const [profileRes, logsRes, listsRes, favTeamsRes, followerRes, followingRes] = await Promise.all([
+  const [profileRes, logsRes, listsRes, favTeamsRes, favPlayersRes, followerRes, followingRes, watchlistRes] = await Promise.all([
     supabase
       .from('user_profiles')
       .select('*')
@@ -66,6 +69,10 @@ async function fetchProfile(userId: string): Promise<ProfileData> {
       .select('team:teams (*)')
       .eq('user_id', userId),
     supabase
+      .from('user_favorite_players')
+      .select('player:players (*, team:teams (*))')
+      .eq('user_id', userId),
+    supabase
       .from('follows')
       .select('*', { count: 'exact', head: true })
       .eq('following_id', userId),
@@ -73,6 +80,10 @@ async function fetchProfile(userId: string): Promise<ProfileData> {
       .from('follows')
       .select('*', { count: 'exact', head: true })
       .eq('follower_id', userId),
+    supabase
+      .from('watchlist')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId),
   ]);
 
   if (profileRes.error) throw profileRes.error;
@@ -91,48 +102,38 @@ async function fetchProfile(userId: string): Promise<ProfileData> {
     .map((r) => r.team)
     .filter(Boolean) as Team[];
 
+  const favoritePlayers = ((favPlayersRes.data ?? []) as any[])
+    .map((r) => r.player)
+    .filter(Boolean) as (Player & { team: Team | null })[];
+
   return {
     profile: profileRes.data,
     logs,
     stats: { count: logs.length, avgRating },
     lists: (listsRes.data ?? []) as List[],
     favoriteTeams,
+    favoritePlayers,
     followerCount: followerRes.count ?? 0,
     followingCount: followingRes.count ?? 0,
+    watchlistCount: watchlistRes.count ?? 0,
   };
 }
 
 export default function ProfileScreen() {
-  const { user, setSession } = useAuthStore();
+  const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showCreateList, setShowCreateList] = useState(false);
   const [showFavoriteTeams, setShowFavoriteTeams] = useState(false);
+  const [showFavoritePlayers, setShowFavoritePlayers] = useState(false);
   const [showFollowList, setShowFollowList] = useState<'followers' | 'following' | null>(null);
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: () => fetchProfile(user!.id),
     enabled: !!user,
   });
-
-  async function handleSignOut() {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          setSigningOut(true);
-          await supabase.auth.signOut();
-          setSession(null);
-          setSigningOut(false);
-        },
-      },
-    ]);
-  }
 
   if (isLoading) {
     return <ProfileSkeleton />;
@@ -142,10 +143,20 @@ export default function ProfileScreen() {
     return <ErrorState message="Failed to load profile" onRetry={refetch} />;
   }
 
-  const { profile, logs, stats, lists, favoriteTeams, followerCount, followingCount } = data;
+  const { profile, logs, stats, lists, favoriteTeams, favoritePlayers, followerCount, followingCount, watchlistCount } = data;
 
   return (
-    <ScrollView className="flex-1 bg-background" showsVerticalScrollIndicator={false}>
+    <ScrollView
+      className="flex-1 bg-background"
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefetching}
+          onRefresh={refetch}
+          tintColor="#c9a84c"
+        />
+      }
+    >
       {/* Header */}
       <View className="bg-surface border-b border-border px-6 py-6">
         <View className="flex-row justify-between items-start">
@@ -176,15 +187,10 @@ export default function ProfileScreen() {
               <Pencil size={20} color="#c9a84c" />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={handleSignOut}
-              disabled={signingOut}
+              onPress={() => router.push('/settings')}
               className="p-2"
             >
-              {signingOut ? (
-                <ActivityIndicator color="#e63946" size="small" />
-              ) : (
-                <LogOut size={22} color="#e63946" />
-              )}
+              <Settings size={22} color="#6b7280" />
             </TouchableOpacity>
           </View>
         </View>
@@ -210,6 +216,16 @@ export default function ProfileScreen() {
             <Text className="text-muted text-xs mt-0.5">Following</Text>
           </TouchableOpacity>
         </View>
+
+        {/* View Stats */}
+        <TouchableOpacity
+          className="mt-4 bg-accent/10 border border-accent/30 rounded-xl py-3 flex-row items-center justify-center gap-2"
+          onPress={() => router.push('/stats')}
+          activeOpacity={0.7}
+        >
+          <BarChart3 size={16} color="#c9a84c" />
+          <Text className="text-accent font-semibold text-sm">View Stats</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Favorite Teams */}
@@ -248,6 +264,51 @@ export default function ProfileScreen() {
                   {team.abbreviation}
                 </Text>
               </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Favorite Players */}
+      <View className="px-4 pt-4">
+        <View className="flex-row justify-between items-center mb-3">
+          <Text className="text-white font-semibold text-base">
+            Favorite Players
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowFavoritePlayers(true)}
+            className="flex-row items-center gap-1"
+          >
+            <Heart size={14} color="#c9a84c" />
+            <Text className="text-accent text-sm font-medium">Edit</Text>
+          </TouchableOpacity>
+        </View>
+        {favoritePlayers.length === 0 ? (
+          <TouchableOpacity
+            className="bg-surface border border-border rounded-xl p-4 mb-2"
+            onPress={() => setShowFavoritePlayers(true)}
+            activeOpacity={0.7}
+          >
+            <Text className="text-muted text-sm text-center">
+              Tap to pick your favorite players
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View className="flex-row flex-wrap gap-2 mb-2">
+            {favoritePlayers.map((player) => (
+              <TouchableOpacity
+                key={player.id}
+                className="flex-row items-center gap-1.5 bg-surface border border-border rounded-full px-3 py-1.5"
+                onPress={() => router.push(`/player/${player.id}`)}
+                activeOpacity={0.7}
+              >
+                {player.team && (
+                  <TeamLogo abbreviation={(player.team as Team).abbreviation} size={16} />
+                )}
+                <Text className="text-white text-xs font-medium">
+                  {player.first_name} {player.last_name}
+                </Text>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -298,6 +359,24 @@ export default function ProfileScreen() {
         )}
       </View>
 
+      {/* Watchlist */}
+      <View className="px-4 pt-4">
+        <TouchableOpacity
+          className="bg-surface border border-border rounded-xl p-4 flex-row items-center justify-between"
+          onPress={() => router.push('/watchlist')}
+          activeOpacity={0.7}
+        >
+          <View className="flex-row items-center gap-3">
+            <Bookmark size={18} color="#c9a84c" />
+            <Text className="text-white font-medium text-base">Watchlist</Text>
+          </View>
+          <View className="flex-row items-center gap-2">
+            <Text className="text-muted text-sm">{watchlistCount}</Text>
+            <ChevronRight size={16} color="#6b7280" />
+          </View>
+        </TouchableOpacity>
+      </View>
+
       {/* Recent Logs */}
       <View className="px-4 pt-4">
         <Text className="text-white font-semibold text-base mb-3">
@@ -342,6 +421,17 @@ export default function ProfileScreen() {
           onClose={() => setShowFavoriteTeams(false)}
           onSuccess={() => {
             setShowFavoriteTeams(false);
+            refetch();
+          }}
+        />
+      )}
+
+      {showFavoritePlayers && (
+        <FavoritePlayersModal
+          currentFavoriteIds={favoritePlayers.map((p) => p.id)}
+          onClose={() => setShowFavoritePlayers(false)}
+          onSuccess={() => {
+            setShowFavoritePlayers(false);
             refetch();
           }}
         />

@@ -16,6 +16,7 @@ import { useToastStore } from '@/lib/store/toastStore';
 import Avatar from '@/components/Avatar';
 import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
+import { DiscoverSkeleton } from '@/components/Skeleton';
 import type { GameWithTeams, UserProfile, LogTag } from '@/types/database';
 
 interface MostLoggedGame {
@@ -261,11 +262,7 @@ export default function DiscoverScreen() {
   });
 
   if (isLoading) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator color="#c9a84c" size="large" />
-      </View>
-    );
+    return <DiscoverSkeleton />;
   }
 
   if (error || !data) {
