@@ -40,45 +40,112 @@ interface GamesPage {
   loggedGameIds: string[];
 }
 
+function parseMatchupQuery(raw: string): { away: string; home: string } | null {
+  const m = raw.match(/^\s*(.+?)\s+(?:@|vs\.?|v)\s+(.+?)\s*$/i);
+  if (!m) return null;
+  return { away: m[1].trim(), home: m[2].trim() };
+}
+
 async function searchGamesPage(
   query: string,
   seasonId: string | null,
   offset: number,
   userId: string | null,
 ): Promise<GamesPage> {
-  const { data: teams, error: teamsError } = await supabase
-    .from('teams')
-    .select('id')
-    .or(
-      `abbreviation.ilike.%${query}%,name.ilike.%${query}%,city.ilike.%${query}%,full_name.ilike.%${query}%`
-    );
+  const matchup = parseMatchupQuery(query);
 
-  if (teamsError) throw teamsError;
-  if (!teams || teams.length === 0) return { games: [], nextOffset: null, loggedGameIds: [] };
+  let games: GameWithTeams[];
 
-  const teamIds = teams.map((t) => t.id);
+  if (matchup) {
+    // Matchup search: find teams for each side in parallel
+    const [awayRes, homeRes] = await Promise.all([
+      supabase
+        .from('teams')
+        .select('id')
+        .or(
+          `abbreviation.ilike.%${matchup.away}%,name.ilike.%${matchup.away}%,city.ilike.%${matchup.away}%,full_name.ilike.%${matchup.away}%`
+        ),
+      supabase
+        .from('teams')
+        .select('id')
+        .or(
+          `abbreviation.ilike.%${matchup.home}%,name.ilike.%${matchup.home}%,city.ilike.%${matchup.home}%,full_name.ilike.%${matchup.home}%`
+        ),
+    ]);
+    if (awayRes.error) throw awayRes.error;
+    if (homeRes.error) throw homeRes.error;
+    if (!awayRes.data?.length || !homeRes.data?.length)
+      return { games: [], nextOffset: null, loggedGameIds: [] };
 
-  let gamesQuery = supabase
-    .from('games')
-    .select(`
-      *,
-      home_team:teams!games_home_team_id_fkey (*),
-      away_team:teams!games_away_team_id_fkey (*),
-      season:seasons (*)
-    `)
-    .or(`home_team_id.in.(${teamIds.join(',')}),away_team_id.in.(${teamIds.join(',')})`)
-    .neq('status', 'scheduled')
-    .order('game_date_utc', { ascending: false })
-    .range(offset, offset + PAGE_SIZE - 1);
+    const awayIds = awayRes.data.map((t) => t.id);
+    const homeIds = homeRes.data.map((t) => t.id);
+    const allIds = [...new Set([...awayIds, ...homeIds])];
 
-  if (seasonId) {
-    gamesQuery = gamesQuery.eq('season_id', seasonId);
+    // Fetch games involving any of these teams
+    let gamesQuery = supabase
+      .from('games')
+      .select(`
+        *,
+        home_team:teams!games_home_team_id_fkey (*),
+        away_team:teams!games_away_team_id_fkey (*),
+        season:seasons (*)
+      `)
+      .or(`home_team_id.in.(${allIds.join(',')}),away_team_id.in.(${allIds.join(',')})`)
+      .neq('status', 'scheduled')
+      .order('game_date_utc', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (seasonId) {
+      gamesQuery = gamesQuery.eq('season_id', seasonId);
+    }
+
+    const { data, error } = await gamesQuery;
+    if (error) throw error;
+
+    // Client-side filter: both teams must be in the game
+    const awaySet = new Set(awayIds);
+    const homeSet = new Set(homeIds);
+    games = ((data ?? []) as unknown as GameWithTeams[]).filter((g) => {
+      const hasAway = awaySet.has(g.away_team_id) || awaySet.has(g.home_team_id);
+      const hasHome = homeSet.has(g.away_team_id) || homeSet.has(g.home_team_id);
+      return hasAway && hasHome;
+    });
+  } else {
+    // Single-team search
+    const { data: teams, error: teamsError } = await supabase
+      .from('teams')
+      .select('id')
+      .or(
+        `abbreviation.ilike.%${query}%,name.ilike.%${query}%,city.ilike.%${query}%,full_name.ilike.%${query}%`
+      );
+
+    if (teamsError) throw teamsError;
+    if (!teams || teams.length === 0) return { games: [], nextOffset: null, loggedGameIds: [] };
+
+    const teamIds = teams.map((t) => t.id);
+
+    let gamesQuery = supabase
+      .from('games')
+      .select(`
+        *,
+        home_team:teams!games_home_team_id_fkey (*),
+        away_team:teams!games_away_team_id_fkey (*),
+        season:seasons (*)
+      `)
+      .or(`home_team_id.in.(${teamIds.join(',')}),away_team_id.in.(${teamIds.join(',')})`)
+      .neq('status', 'scheduled')
+      .order('game_date_utc', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (seasonId) {
+      gamesQuery = gamesQuery.eq('season_id', seasonId);
+    }
+
+    const { data, error } = await gamesQuery;
+    if (error) throw error;
+
+    games = (data ?? []) as unknown as GameWithTeams[];
   }
-
-  const { data, error } = await gamesQuery;
-  if (error) throw error;
-
-  const games = (data ?? []) as unknown as GameWithTeams[];
 
   // Check which games the user has already logged
   let loggedGameIds: string[] = [];
@@ -185,7 +252,7 @@ export default function SearchScreen() {
             className="flex-1 py-3.5 text-white text-base"
             placeholder={
               searchMode === 'games'
-                ? 'Search teams or games (e.g. LAL)'
+                ? 'Search games (e.g. LAL, MIA @ BOS)'
                 : 'Search users by name or handle'
             }
             placeholderTextColor="#6b7280"
