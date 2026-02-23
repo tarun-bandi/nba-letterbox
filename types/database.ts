@@ -20,6 +20,7 @@ export interface Database {
           handle: string;
           bio: string | null;
           avatar_url: string | null;
+          onboarding_completed: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -29,6 +30,7 @@ export interface Database {
           handle: string;
           bio?: string | null;
           avatar_url?: string | null;
+          onboarding_completed?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -37,6 +39,7 @@ export interface Database {
           handle?: string;
           bio?: string | null;
           avatar_url?: string | null;
+          onboarding_completed?: boolean;
           updated_at?: string;
         };
       };
@@ -319,6 +322,25 @@ export interface Database {
         };
         Update: Record<string, never>;
       };
+      comments: {
+        Row: {
+          id: string;
+          user_id: string;
+          log_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          log_id: string;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          body?: string;
+        };
+      };
       user_favorite_players: {
         Row: {
           user_id: string;
@@ -353,6 +375,7 @@ export type Game = Database['public']['Tables']['games']['Row'];
 export type GameLog = Database['public']['Tables']['game_logs']['Row'];
 export type LogTag = Database['public']['Tables']['log_tags']['Row'];
 export type Like = Database['public']['Tables']['likes']['Row'];
+export type Comment = Database['public']['Tables']['comments']['Row'];
 export type List = Database['public']['Tables']['lists']['Row'];
 export type ListItem = Database['public']['Tables']['list_items']['Row'];
 
@@ -366,4 +389,8 @@ export type GameWithTeams = Game & {
 export type GameLogWithGame = GameLog & {
   game: GameWithTeams;
   user_profile?: UserProfile;
+  like_count?: number;
+  liked_by_me?: boolean;
+  tags?: LogTag[];
+  comment_count?: number;
 };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,14 @@ import {
 import { X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
+import { useToastStore } from '@/lib/store/toastStore';
+import * as Haptics from 'expo-haptics';
 import StarRating from './StarRating';
-import type { GameLog, WatchMode } from '@/types/database';
+import type { GameLog, WatchMode, LogTag } from '@/types/database';
 
 interface LogModalProps {
   gameId: string;
-  existingLog: GameLog | null;
+  existingLog: (GameLog & { tags?: LogTag[] }) | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -39,6 +41,7 @@ export default function LogModal({
   onSuccess,
 }: LogModalProps) {
   const { user } = useAuthStore();
+  const toast = useToastStore();
   const [rating, setRating] = useState<number>(
     existingLog?.rating != null ? existingLog.rating / 10 : 0
   );
@@ -50,12 +53,70 @@ export default function LogModal({
     existingLog?.has_spoilers ?? false
   );
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Tags
+  const [availableTags, setAvailableTags] = useState<LogTag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(
+    new Set((existingLog?.tags ?? []).map((t) => t.id))
+  );
+
+  useEffect(() => {
+    supabase
+      .from('log_tags')
+      .select('*')
+      .order('name')
+      .then(({ data }) => {
+        if (data) setAvailableTags(data as LogTag[]);
+      });
+  }, []);
+
+  function toggleTag(tagId: string) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedTagIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tagId)) next.delete(tagId);
+      else next.add(tagId);
+      return next;
+    });
+  }
+
+  function handleDelete() {
+    if (!existingLog) return;
+    Alert.alert(
+      'Delete Log',
+      'Are you sure you want to delete this log? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            const { error } = await supabase
+              .from('game_logs')
+              .delete()
+              .eq('id', existingLog.id);
+            setDeleting(false);
+            if (error) {
+              toast.show(error.message, 'error');
+            } else {
+              toast.show('Log deleted');
+              onSuccess();
+            }
+          },
+        },
+      ],
+    );
+  }
 
   async function handleSave() {
     if (!user) return;
 
     setSaving(true);
-    const { error } = await supabase
+
+    // Upsert the game log
+    const { data: logData, error } = await supabase
       .from('game_logs')
       .upsert(
         {
@@ -68,14 +129,31 @@ export default function LogModal({
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,game_id' }
-      );
-    setSaving(false);
+      )
+      .select('id')
+      .single();
 
-    if (error) {
-      Alert.alert('Error', error.message);
-    } else {
-      onSuccess();
+    if (error || !logData) {
+      setSaving(false);
+      toast.show(error?.message ?? 'Failed to save log', 'error');
+      return;
     }
+
+    // Update tags: delete existing, insert selected
+    const logId = logData.id;
+    await supabase.from('game_log_tag_map').delete().eq('log_id', logId);
+
+    if (selectedTagIds.size > 0) {
+      const tagRows = [...selectedTagIds].map((tag_id) => ({
+        log_id: logId,
+        tag_id,
+      }));
+      await supabase.from('game_log_tag_map').insert(tagRows);
+    }
+
+    setSaving(false);
+    toast.show(existingLog ? 'Log updated' : 'Game logged!');
+    onSuccess();
   }
 
   return (
@@ -152,6 +230,37 @@ export default function LogModal({
                 </View>
               </View>
 
+              {/* Tags */}
+              {availableTags.length > 0 && (
+                <View className="mb-5">
+                  <Text className="text-muted text-sm mb-2">Tags</Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {availableTags.map((tag) => {
+                      const selected = selectedTagIds.has(tag.id);
+                      return (
+                        <TouchableOpacity
+                          key={tag.id}
+                          className={`px-3 py-1.5 rounded-full border ${
+                            selected
+                              ? 'bg-accent/20 border-accent'
+                              : 'bg-background border-border'
+                          }`}
+                          onPress={() => toggleTag(tag.id)}
+                        >
+                          <Text
+                            className={`text-xs font-medium ${
+                              selected ? 'text-accent' : 'text-muted'
+                            }`}
+                          >
+                            {tag.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
               {/* Review */}
               <View className="mb-5">
                 <Text className="text-muted text-sm mb-2">Review (optional)</Text>
@@ -165,6 +274,7 @@ export default function LogModal({
                   numberOfLines={4}
                   textAlignVertical="top"
                   style={{ minHeight: 96 }}
+                  maxLength={1000}
                 />
               </View>
 
@@ -186,11 +296,16 @@ export default function LogModal({
                 />
               </View>
 
+              {/* Review character counter */}
+              <Text className="text-muted text-xs mt-1 text-right">
+                {review.length}/1000
+              </Text>
+
               {/* Save button */}
               <TouchableOpacity
-                className="bg-accent rounded-xl py-4 items-center mb-8"
+                className="bg-accent rounded-xl py-4 items-center mb-4"
                 onPress={handleSave}
-                disabled={saving}
+                disabled={saving || deleting}
               >
                 {saving ? (
                   <ActivityIndicator color="#0a0a0a" />
@@ -200,6 +315,23 @@ export default function LogModal({
                   </Text>
                 )}
               </TouchableOpacity>
+
+              {/* Delete button (edit mode only) */}
+              {existingLog && (
+                <TouchableOpacity
+                  className="rounded-xl py-4 items-center mb-8 border border-[#e63946]"
+                  onPress={handleDelete}
+                  disabled={saving || deleting}
+                >
+                  {deleting ? (
+                    <ActivityIndicator color="#e63946" />
+                  ) : (
+                    <Text className="text-[#e63946] font-semibold text-base">
+                      Delete Log
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </View>
         </KeyboardAvoidingView>

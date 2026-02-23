@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import { Link } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { signInWithGoogle } from '@/lib/googleAuth';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleLogin() {
     if (!email || !password) {
@@ -32,6 +34,17 @@ export default function LoginScreen() {
     }
     // On success, the onAuthStateChange listener in _layout.tsx updates the session
     // and the navigator automatically redirects to (tabs)
+  }
+
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      Alert.alert('Google Sign In Failed', error.message);
+    } finally {
+      setGoogleLoading(false);
+    }
   }
 
   return (
@@ -75,13 +88,35 @@ export default function LoginScreen() {
           <TouchableOpacity
             className="bg-accent rounded-xl py-4 items-center mt-2"
             onPress={handleLogin}
-            disabled={loading}
+            disabled={loading || googleLoading}
           >
             {loading ? (
               <ActivityIndicator color="#0a0a0a" />
             ) : (
               <Text className="text-background font-semibold text-base">
                 Sign In
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View className="flex-row items-center mt-4">
+            <View className="flex-1 h-px bg-border" />
+            <Text className="text-muted text-sm mx-4">or</Text>
+            <View className="flex-1 h-px bg-border" />
+          </View>
+
+          {/* Google Sign In */}
+          <TouchableOpacity
+            className="bg-surface border border-border rounded-xl py-4 items-center mt-4"
+            onPress={handleGoogleSignIn}
+            disabled={loading || googleLoading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text className="text-white font-semibold text-base">
+                Continue with Google
               </Text>
             )}
           </TouchableOpacity>
