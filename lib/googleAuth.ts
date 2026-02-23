@@ -5,10 +5,13 @@ import { supabase } from './supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const redirectTo = AuthSession.makeRedirectUri({
-  scheme: 'nba-letterbox',
-  path: 'auth/callback',
-});
+const redirectTo =
+  Platform.OS === 'web'
+    ? window.location.origin
+    : AuthSession.makeRedirectUri({
+        scheme: 'nba-letterbox',
+        path: 'auth/callback',
+      });
 
 export async function signInWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
