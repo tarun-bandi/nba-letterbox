@@ -310,9 +310,9 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
       <Text className="text-white font-semibold text-base mb-3">Box Score</Text>
 
       {/* Team toggle */}
-      <View className="flex-row bg-surface rounded-xl mb-3 p-1">
+      <View className="flex-row bg-surface rounded-xl mb-3 p-1 self-start">
         <TouchableOpacity
-          className={`flex-1 py-2.5 rounded-lg items-center ${isAwayActive ? 'bg-border' : ''}`}
+          className={`py-2.5 px-6 rounded-lg items-center ${isAwayActive ? 'bg-border' : ''}`}
           onPress={() => setActiveTeamId(game.away_team_id)}
           activeOpacity={0.7}
         >
@@ -321,7 +321,7 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          className={`flex-1 py-2.5 rounded-lg items-center ${!isAwayActive ? 'bg-border' : ''}`}
+          className={`py-2.5 px-6 rounded-lg items-center ${!isAwayActive ? 'bg-border' : ''}`}
           onPress={() => setActiveTeamId(game.home_team_id)}
           activeOpacity={0.7}
         >
