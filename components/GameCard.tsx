@@ -20,6 +20,7 @@ import Avatar from './Avatar';
 import CommentsSheet from './CommentsSheet';
 import StarRating from './StarRating';
 import TeamLogo from './TeamLogo';
+import PlayoffBadge from './PlayoffBadge';
 import type { GameLogWithGame } from '@/types/database';
 
 interface GameCardProps {
@@ -221,6 +222,7 @@ export default function GameCard({ log, showUser = false, showLoggedBadge = fals
             </Text>
           </View>
           <View className="flex-row items-center gap-2">
+            {game.playoff_round && <PlayoffBadge round={game.playoff_round} />}
             {showLoggedBadge && (
               <View className="bg-accent/20 border border-accent/40 rounded-full px-2 py-0.5">
                 <Text className="text-accent text-xs font-medium">Logged ✓</Text>

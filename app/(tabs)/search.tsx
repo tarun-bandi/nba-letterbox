@@ -18,6 +18,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useAuthStore } from '@/lib/store/authStore';
 import Avatar from '@/components/Avatar';
 import TeamLogo from '@/components/TeamLogo';
+import PlayoffBadge from '@/components/PlayoffBadge';
 import type { GameWithTeams, Season, UserProfile } from '@/types/database';
 
 const PAGE_SIZE = 20;
@@ -366,6 +367,7 @@ export default function SearchScreen() {
                   </Text>
                 </View>
                 <View className="flex-row items-center gap-2">
+                  {item.playoff_round && <PlayoffBadge round={item.playoff_round} />}
                   {loggedGameIds.has(item.id) && (
                     <View className="bg-accent/20 border border-accent/40 rounded-full px-2 py-0.5">
                       <Text className="text-accent text-xs font-medium">Logged ✓</Text>

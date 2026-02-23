@@ -15,6 +15,7 @@ import { useAuthStore } from '@/lib/store/authStore';
 import { useToastStore } from '@/lib/store/toastStore';
 import Avatar from '@/components/Avatar';
 import TeamLogo from '@/components/TeamLogo';
+import PlayoffBadge from '@/components/PlayoffBadge';
 import type { GameWithTeams, UserProfile, LogTag } from '@/types/database';
 
 interface MostLoggedGame {
@@ -389,6 +390,7 @@ export default function DiscoverScreen() {
                   <Text className="text-white font-semibold">
                     {item.game.home_team.abbreviation}
                   </Text>
+                  {item.game.playoff_round && <PlayoffBadge round={item.game.playoff_round} />}
                 </View>
                 <Text className="text-accent text-sm font-medium">
                   {item.logCount} {item.logCount === 1 ? 'log' : 'logs'}
@@ -432,6 +434,7 @@ export default function DiscoverScreen() {
                   <Text className="text-white font-semibold">
                     {item.game.home_team.abbreviation}
                   </Text>
+                  {item.game.playoff_round && <PlayoffBadge round={item.game.playoff_round} />}
                 </View>
                 <View className="items-end">
                   <Text className="text-accent text-sm font-semibold">
