@@ -7,6 +7,7 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -47,20 +48,24 @@ export default function SettingsScreen() {
     enabled: !!user,
   });
 
+  async function performSignOut() {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    setSession(null);
+    setSigningOut(false);
+  }
+
   function handleSignOut() {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          setSigningOut(true);
-          await supabase.auth.signOut();
-          setSession(null);
-          setSigningOut(false);
-        },
-      },
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to sign out?')) {
+        performSignOut();
+      }
+    } else {
+      Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Out', style: 'destructive', onPress: performSignOut },
+      ]);
+    }
   }
 
   return (
