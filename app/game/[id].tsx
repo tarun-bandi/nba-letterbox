@@ -130,6 +130,7 @@ export default function GameDetailScreen() {
   }
 
   const { game, logs, myLog, communityAvg } = data;
+  const gamePlayedOrLive = game.status === 'final' || game.status === 'live';
 
   return (
     <>
@@ -196,30 +197,38 @@ export default function GameDetailScreen() {
         </View>
 
         {/* Action Buttons */}
-        <View className="mx-4 mt-4 flex-row gap-3">
-          <TouchableOpacity
-            className={`flex-1 rounded-xl py-4 items-center ${
-              myLog ? 'bg-surface border border-accent' : 'bg-accent'
-            }`}
-            onPress={() => setShowLogModal(true)}
-            activeOpacity={0.8}
-          >
-            <Text
-              className={`font-semibold text-base ${
-                myLog ? 'text-accent' : 'text-background'
+        {gamePlayedOrLive ? (
+          <View className="mx-4 mt-4 flex-row gap-3">
+            <TouchableOpacity
+              className={`flex-1 rounded-xl py-4 items-center ${
+                myLog ? 'bg-surface border border-accent' : 'bg-accent'
               }`}
+              onPress={() => setShowLogModal(true)}
+              activeOpacity={0.8}
             >
-              {myLog ? 'Edit My Log' : 'Log This Game'}
+              <Text
+                className={`font-semibold text-base ${
+                  myLog ? 'text-accent' : 'text-background'
+                }`}
+              >
+                {myLog ? 'Edit My Log' : 'Log This Game'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="bg-surface border border-border rounded-xl py-4 px-5 items-center justify-center"
+              onPress={() => setShowListModal(true)}
+              activeOpacity={0.8}
+            >
+              <List size={22} color="#c9a84c" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View className="mx-4 mt-4 bg-surface border border-border rounded-xl py-4 items-center">
+            <Text className="text-muted font-medium text-base">
+              Game hasn't started yet
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="bg-surface border border-border rounded-xl py-4 px-5 items-center justify-center"
-            onPress={() => setShowListModal(true)}
-            activeOpacity={0.8}
-          >
-            <List size={22} color="#c9a84c" />
-          </TouchableOpacity>
-        </View>
+          </View>
+        )}
 
         {/* Recent Logs */}
         <View className="px-4 pt-6 pb-4">

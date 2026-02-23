@@ -67,6 +67,7 @@ async function searchGamesPage(
       season:seasons (*)
     `)
     .or(`home_team_id.in.(${teamIds.join(',')}),away_team_id.in.(${teamIds.join(',')})`)
+    .neq('status', 'scheduled')
     .order('game_date_utc', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
 
