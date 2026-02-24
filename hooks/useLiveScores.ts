@@ -12,11 +12,18 @@ function getTodayDateStr(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
+export interface LiveGameData {
+  status: 'scheduled' | 'live' | 'final';
+  label: string | null;
+  homeScore: number;
+  awayScore: number;
+}
+
 /**
  * Polls the BallDontLie API every 60s when there are live or scheduled games.
  * Updates Supabase with fresh scores/status, then invalidates the todays-games query.
  *
- * Returns a map of provider_game_id → live status label for the UI.
+ * Returns a map of provider_game_id → live game data for direct UI use.
  */
 export function useLiveScores(games: GameWithTeams[] | undefined) {
   const queryClient = useQueryClient();
@@ -27,7 +34,7 @@ export function useLiveScores(games: GameWithTeams[] | undefined) {
 
   return useQuery({
     queryKey: ['live-scores', getTodayDateStr()],
-    queryFn: async (): Promise<Map<number, string | null>> => {
+    queryFn: async (): Promise<Map<number, LiveGameData>> => {
       const bdlGames = await fetchTodaysGamesFromBDL();
       if (bdlGames.length === 0) return new Map();
 
@@ -47,17 +54,19 @@ export function useLiveScores(games: GameWithTeams[] | undefined) {
         time: string;
       }> = [];
 
-      const statusLabels = new Map<number, string | null>();
+      const liveMap = new Map<number, LiveGameData>();
 
       for (const game of games ?? []) {
         const bdl = bdlMap.get(game.provider_game_id);
         if (!bdl) continue;
 
         const newStatus = mapStatus(bdl.status);
-        statusLabels.set(
-          game.provider_game_id,
-          formatLiveStatus(bdl.status, bdl.period, bdl.time),
-        );
+        liveMap.set(game.provider_game_id, {
+          status: newStatus,
+          label: formatLiveStatus(bdl.status, bdl.period, bdl.time),
+          homeScore: bdl.home_team_score,
+          awayScore: bdl.visitor_team_score,
+        });
 
         // Only update if something changed
         const changed =
@@ -102,7 +111,7 @@ export function useLiveScores(games: GameWithTeams[] | undefined) {
         });
       }
 
-      return statusLabels;
+      return liveMap;
     },
     enabled: hasActiveGames,
     refetchInterval: hasActiveGames ? 60_000 : false,
