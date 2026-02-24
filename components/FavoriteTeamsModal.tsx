@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,14 @@ import { X, Check } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
+import { useTeams } from '@/hooks/useTeams';
 import TeamLogo from './TeamLogo';
-import type { Team } from '@/types/database';
+import type { Sport } from '@/types/database';
+
+const SPORT_TABS: { key: Sport; label: string }[] = [
+  { key: 'nba', label: 'NBA' },
+  { key: 'nfl', label: 'NFL' },
+];
 
 interface FavoriteTeamsModalProps {
   currentFavoriteIds: string[];
@@ -29,22 +35,14 @@ export default function FavoriteTeamsModal({
   onSuccess,
 }: FavoriteTeamsModalProps) {
   const { user } = useAuthStore();
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [activeSport, setActiveSport] = useState<Sport>('nba');
+  const { data: nbaTeams = [], isLoading: nbaLoading } = useTeams('nba');
+  const { data: nflTeams = [], isLoading: nflLoading } = useTeams('nfl');
   const [selected, setSelected] = useState<Set<string>>(new Set(currentFavoriteIds));
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    supabase
-      .from('teams')
-      .select('*')
-      .in('conference', ['East', 'West'])
-      .order('full_name', { ascending: true })
-      .then(({ data, error }) => {
-        if (!error && data) setTeams(data as Team[]);
-        setLoading(false);
-      });
-  }, []);
+  const teams = activeSport === 'nba' ? nbaTeams : nflTeams;
+  const loading = activeSport === 'nba' ? nbaLoading : nflLoading;
 
   function toggleTeam(teamId: string) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -91,6 +89,16 @@ export default function FavoriteTeamsModal({
       }
     }
 
+    // Update enabled_sports based on selections
+    const selectedNfl = nflTeams.some((t) => selected.has(t.id));
+    const enabledSports: Sport[] = ['nba'];
+    if (selectedNfl) enabledSports.push('nfl');
+
+    await supabase
+      .from('user_profiles')
+      .update({ enabled_sports: enabledSports })
+      .eq('user_id', user.id);
+
     setSaving(false);
     onSuccess();
   }
@@ -121,6 +129,25 @@ export default function FavoriteTeamsModal({
               </TouchableOpacity>
             </View>
 
+            {/* Sport tabs */}
+            <View className="flex-row px-5 mb-3 gap-2">
+              {SPORT_TABS.map((tab) => (
+                <TouchableOpacity
+                  key={tab.key}
+                  onPress={() => setActiveSport(tab.key)}
+                  className="px-4 py-1.5 rounded-full border border-border bg-background"
+                  style={activeSport === tab.key ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
+                >
+                  <Text
+                    className="text-sm font-medium text-muted"
+                    style={activeSport === tab.key ? { color: '#0a0a0a' } : undefined}
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             {loading ? (
               <View className="items-center py-8">
                 <ActivityIndicator color="#c9a84c" />
@@ -145,7 +172,7 @@ export default function FavoriteTeamsModal({
                         onPress={() => toggleTeam(team.id)}
                         activeOpacity={0.7}
                       >
-                        <TeamLogo abbreviation={team.abbreviation} sport={team.sport ?? 'nba'} size={20} />
+                        <TeamLogo abbreviation={team.abbreviation} sport={activeSport} size={20} />
                         <Text
                           className={`text-sm font-medium ${
                             isSelected ? 'text-accent' : 'text-muted'
