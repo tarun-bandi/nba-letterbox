@@ -35,7 +35,7 @@ import type { GameLogWithGame, UserProfile, List, Team, Player } from '@/types/d
 interface ProfileData {
   profile: UserProfile;
   logs: GameLogWithGame[];
-  stats: { count: number; avgRating: number | null };
+  stats: { count: number };
   lists: List[];
   favoriteTeams: Team[];
   favoritePlayers: (Player & { team: Team | null })[];
@@ -99,11 +99,6 @@ async function fetchProfile(userId: string): Promise<ProfileData> {
 
   const rawLogs = (logsRes.data ?? []) as unknown as GameLogWithGame[];
   const logs = await enrichLogs(rawLogs, userId);
-  const ratings = logs.filter((l) => l.rating !== null).map((l) => l.rating!);
-  const avgRating =
-    ratings.length > 0
-      ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) / 10
-      : null;
 
   const favoriteTeams = ((favTeamsRes.data ?? []) as any[])
     .map((r) => r.team)
@@ -136,7 +131,7 @@ async function fetchProfile(userId: string): Promise<ProfileData> {
   return {
     profile: profileRes.data,
     logs,
-    stats: { count: logs.length, avgRating },
+    stats: { count: logs.length },
     lists: (listsRes.data ?? []) as List[],
     favoriteTeams,
     favoritePlayers,
@@ -239,12 +234,6 @@ export default function ProfileScreen() {
           <View>
             <Text className="text-accent text-xl font-bold">{stats.count}</Text>
             <Text className="text-muted text-xs mt-0.5">Games</Text>
-          </View>
-          <View>
-            <Text className="text-accent text-xl font-bold">
-              {stats.avgRating !== null ? stats.avgRating.toFixed(1) : '—'}
-            </Text>
-            <Text className="text-muted text-xs mt-0.5">Avg Rating</Text>
           </View>
           <TouchableOpacity onPress={() => setShowFollowList('followers')}>
             <Text className="text-accent text-xl font-bold">{followerCount}</Text>

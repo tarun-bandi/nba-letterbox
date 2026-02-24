@@ -30,7 +30,6 @@ import { fetchGameRanking } from '@/lib/rankingService';
 import AddToListModal from '@/components/AddToListModal';
 import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
-import RatingHistogram from '@/components/RatingHistogram';
 import { GameDetailSkeleton } from '@/components/Skeleton';
 import { gameUrl } from '@/lib/urls';
 import type { GameWithTeams, GameLogWithGame, BoxScore, Sport, PeriodScores } from '@/types/database';
@@ -45,8 +44,6 @@ interface GameDetail {
   game: GameWithTeams;
   logs: GameLogWithGame[];
   myLog: GameLogWithGame | null;
-  communityAvg: number | null;
-  allRatings: number[];
   boxScores: BoxScore[];
   isBookmarked: boolean;
   playerNameMap: Record<string, string>; // player_name -> player_id
@@ -127,12 +124,6 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
   const logs = await enrichLogs(logsWithProfiles, userId);
   const myLog = logs.find((l) => l.user_id === userId) ?? null;
 
-  const allRatings = logs.filter((l) => l.rating !== null).map((l) => l.rating!);
-  const communityAvg =
-    allRatings.length > 0
-      ? Math.round(allRatings.reduce((a, b) => a + b, 0) / allRatings.length) / 10
-      : null;
-
   const allBoxScores = (boxRes.data ?? []) as BoxScore[];
 
   const playerNames = [...new Set(allBoxScores.map((b) => b.player_name))];
@@ -169,8 +160,6 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
     game: gameRes.data as unknown as GameWithTeams,
     logs,
     myLog,
-    communityAvg,
-    allRatings,
     boxScores: allBoxScores,
     isBookmarked: !!watchlistRes.data,
     playerNameMap,
@@ -972,7 +961,7 @@ export default function GameDetailScreen() {
     return <ErrorState message="Failed to load game details" onRetry={refetch} />;
   }
 
-  const { game, logs, myLog, communityAvg, allRatings, boxScores, isBookmarked, playerNameMap, myPrediction, predictionTally, myRanking } = data;
+  const { game, logs, myLog, boxScores, isBookmarked, playerNameMap, myPrediction, predictionTally, myRanking } = data;
   const gamePlayedOrLive = game.status === 'final' || game.status === 'live';
   const sport: Sport = game.sport ?? 'nba';
 
@@ -1036,17 +1025,6 @@ export default function GameDetailScreen() {
             </View>
           </View>
 
-          {/* Community rating + histogram */}
-          {communityAvg !== null && (
-            <View className="mt-4 pt-4 border-t border-border">
-              <View className="flex-row items-center justify-center gap-2">
-                <Text className="text-muted text-sm">Community avg</Text>
-                <Text className="text-accent font-semibold">{communityAvg.toFixed(1)}</Text>
-                <Text className="text-muted text-sm">({logs.length} {logs.length === 1 ? 'log' : 'logs'})</Text>
-              </View>
-              <RatingHistogram ratings={allRatings} />
-            </View>
-          )}
         </View>
 
         {/* Action Buttons */}

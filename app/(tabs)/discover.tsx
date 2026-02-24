@@ -27,12 +27,6 @@ interface MostLoggedGame {
   logCount: number;
 }
 
-interface HighestRatedGame {
-  game: GameWithTeams;
-  avgRating: number;
-  logCount: number;
-}
-
 interface PopularUser {
   profile: UserProfile;
   logCount: number;
@@ -50,7 +44,6 @@ interface TrendingTag {
 
 interface DiscoverData {
   mostLogged: MostLoggedGame[];
-  highestRated: HighestRatedGame[];
   popularUsers: PopularUser[];
   suggestedUsers: SuggestedUser[];
   trendingTags: TrendingTag[];
@@ -83,18 +76,15 @@ async function fetchDiscover(userId: string): Promise<DiscoverData> {
   const recentLogs = recentLogsRes.data ?? [];
   const followedIds = new Set((followsRes.data ?? []).map((f) => f.following_id));
 
-  // Aggregate: count logs per game + avg rating per game
-  const gameStats: Record<string, { count: number; ratings: number[] }> = {};
+  // Aggregate: count logs per game
+  const gameStats: Record<string, { count: number }> = {};
   const userLogCount: Record<string, number> = {};
 
   for (const log of recentLogs) {
     if (!gameStats[log.game_id]) {
-      gameStats[log.game_id] = { count: 0, ratings: [] };
+      gameStats[log.game_id] = { count: 0 };
     }
     gameStats[log.game_id].count++;
-    if (log.rating !== null) {
-      gameStats[log.game_id].ratings.push(log.rating);
-    }
     userLogCount[log.user_id] = (userLogCount[log.user_id] ?? 0) + 1;
   }
 
@@ -103,19 +93,6 @@ async function fetchDiscover(userId: string): Promise<DiscoverData> {
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 5)
     .map(([id]) => id);
-
-  // Highest rated games (min 3 logs, top 5)
-  const highestRatedEntries = Object.entries(gameStats)
-    .filter(([, s]) => s.ratings.length >= 3)
-    .map(([id, s]) => ({
-      id,
-      avg: s.ratings.reduce((a, b) => a + b, 0) / s.ratings.length / 10,
-      count: s.count,
-    }))
-    .sort((a, b) => b.avg - a.avg)
-    .slice(0, 5);
-
-  const highestRatedIds = highestRatedEntries.map((e) => e.id);
 
   // Popular users (top 5 by log count this week)
   const popularUserIds = Object.entries(userLogCount)
@@ -140,7 +117,7 @@ async function fetchDiscover(userId: string): Promise<DiscoverData> {
     .slice(0, 5);
 
   // Fetch game details and profiles in parallel
-  const allGameIds = [...new Set([...mostLoggedIds, ...highestRatedIds])];
+  const allGameIds = [...new Set(mostLoggedIds)];
   const allUserIds = [...new Set([...popularUserIds, ...suggestedUserIds])];
   const tagIds = topTagIds.map(([id]) => id);
 
@@ -189,14 +166,6 @@ async function fetchDiscover(userId: string): Promise<DiscoverData> {
       logCount: gameStats[id].count,
     }));
 
-  const highestRated: HighestRatedGame[] = highestRatedEntries
-    .filter((e) => gameMap[e.id])
-    .map((e) => ({
-      game: gameMap[e.id],
-      avgRating: e.avg,
-      logCount: e.count,
-    }));
-
   const popularUsers: PopularUser[] = popularUserIds
     .filter((id) => profileMap[id])
     .map((id) => ({
@@ -220,7 +189,6 @@ async function fetchDiscover(userId: string): Promise<DiscoverData> {
 
   return {
     mostLogged,
-    highestRated,
     popularUsers,
     suggestedUsers,
     trendingTags,
@@ -279,7 +247,7 @@ export default function DiscoverScreen() {
     );
   }
 
-  const { mostLogged, highestRated, popularUsers, suggestedUsers, trendingTags, followingCount } = data;
+  const { mostLogged, popularUsers, suggestedUsers, trendingTags, followingCount } = data;
   const showSuggestions = suggestedUsers.length > 0 && followingCount < 3;
 
   return (
@@ -416,52 +384,6 @@ export default function DiscoverScreen() {
               <Text className="text-muted text-xs mt-1 ml-7">
                 {formatDate(item.game.game_date_utc)}
               </Text>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
-
-      {/* Highest Rated */}
-      <View className="px-4 pt-4">
-        <Text className="text-white text-lg font-bold mb-3">
-          Highest Rated
-        </Text>
-        {highestRated.length === 0 ? (
-          <View className="items-center py-4 mb-4">
-            <Text style={{ fontSize: 32 }} className="mb-1">📊</Text>
-            <Text className="text-muted text-sm">Not enough ratings yet (min 3 logs required)</Text>
-          </View>
-        ) : (
-          highestRated.map((item, idx) => (
-            <TouchableOpacity
-              key={item.game.id}
-              className="bg-surface border border-border rounded-xl p-4 mb-2"
-              onPress={() => router.push(`/game/${item.game.id}`)}
-              activeOpacity={0.7}
-            >
-              <View className="flex-row justify-between items-center">
-                <View className="flex-row items-center gap-2">
-                  <Text className="text-muted text-sm font-bold w-5">{idx + 1}</Text>
-                  <TeamLogo abbreviation={item.game.away_team.abbreviation} sport={item.game.sport ?? 'nba'} size={22} />
-                  <Text className="text-white font-semibold">
-                    {item.game.away_team.abbreviation}
-                  </Text>
-                  <Text className="text-muted">@</Text>
-                  <TeamLogo abbreviation={item.game.home_team.abbreviation} sport={item.game.sport ?? 'nba'} size={22} />
-                  <Text className="text-white font-semibold">
-                    {item.game.home_team.abbreviation}
-                  </Text>
-                  {item.game.playoff_round && <PlayoffBadge round={item.game.playoff_round} sport={item.game.sport ?? 'nba'} />}
-                </View>
-                <View className="items-end">
-                  <Text className="text-accent text-sm font-semibold">
-                    {item.avgRating.toFixed(1)}
-                  </Text>
-                  <Text className="text-muted text-xs">
-                    {item.logCount} logs
-                  </Text>
-                </View>
-              </View>
             </TouchableOpacity>
           ))
         )}

@@ -11,11 +11,9 @@ import { PageContainer } from '@/components/PageContainer';
 
 interface StatsData {
   totalGames: number;
-  avgRating: number | null;
   mostActiveMonth: string | null;
   favoriteWatchMode: WatchMode | null;
   gamesByMonth: { label: string; value: number }[];
-  ratingDistribution: { label: string; value: number }[];
   mostWatchedTeams: { abbreviation: string; sport: Sport; count: number }[];
   loggingStreak: number;
   teamsCoverage: number;
@@ -56,13 +54,6 @@ async function fetchStats(userId: string): Promise<StatsData> {
   // Total games
   const totalGames = logs.length;
 
-  // Avg rating
-  const ratings = logs.filter((l) => l.rating !== null).map((l) => l.rating as number);
-  const avgRating =
-    ratings.length > 0
-      ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) / 10
-      : null;
-
   // Games by month (last 12 months)
   const now = new Date();
   const monthCounts: Record<string, number> = {};
@@ -92,20 +83,6 @@ async function fetchStats(userId: string): Promise<StatsData> {
       mostActiveMonth = item.label;
     }
   }
-
-  // Rating distribution (0.5 increments from 0.5 to 5.0)
-  const ratingBuckets: Record<string, number> = {};
-  for (let r = 5; r <= 50; r += 5) {
-    ratingBuckets[(r / 10).toFixed(1)] = 0;
-  }
-  for (const r of ratings) {
-    const bucket = (Math.round(r / 5) * 5 / 10).toFixed(1);
-    if (bucket in ratingBuckets) ratingBuckets[bucket]++;
-  }
-  const ratingDistribution = Object.entries(ratingBuckets).map(([label, value]) => ({
-    label,
-    value,
-  }));
 
   // Most watched teams
   const teamCounts: Record<string, number> = {};
@@ -192,11 +169,9 @@ async function fetchStats(userId: string): Promise<StatsData> {
 
   return {
     totalGames,
-    avgRating,
     mostActiveMonth,
     favoriteWatchMode,
     gamesByMonth,
-    ratingDistribution,
     mostWatchedTeams,
     loggingStreak: streak,
     teamsCoverage,
@@ -251,13 +226,9 @@ export default function StatsScreen() {
       <View className="px-4 pt-4">
         <View className="flex-row gap-3 mb-3">
           <StatCard label="Total Games" value={String(data.totalGames)} />
-          <StatCard
-            label="Avg Rating"
-            value={data.avgRating !== null ? data.avgRating.toFixed(1) : '—'}
-          />
+          <StatCard label="Most Active" value={data.mostActiveMonth ?? '—'} />
         </View>
         <View className="flex-row gap-3 mb-4">
-          <StatCard label="Most Active" value={data.mostActiveMonth ?? '—'} />
           <StatCard
             label="Watch Mode"
             value={
@@ -320,16 +291,6 @@ export default function StatsScreen() {
         </Text>
         <View className="bg-surface border border-border rounded-xl p-4">
           <StatBar items={data.gamesByMonth} />
-        </View>
-      </View>
-
-      {/* Rating Distribution */}
-      <View className="px-4 mb-4">
-        <Text className="text-white font-semibold text-base mb-3">
-          Rating Distribution
-        </Text>
-        <View className="bg-surface border border-border rounded-xl p-4">
-          <StatBar items={data.ratingDistribution} />
         </View>
       </View>
 
