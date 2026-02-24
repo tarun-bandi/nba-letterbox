@@ -1,9 +1,9 @@
 import { supabase } from './supabase';
-import { fetchRankingsForGames } from './rankingService';
+import { fetchRankedCount } from './rankingService';
 import type { GameLogWithGame, LogTag, ReactionType } from '@/types/database';
 
 /**
- * Enriches game logs with reaction counts, user's reaction, tags, comment counts, and rankings.
+ * Enriches game logs with reaction counts, user's reaction, tags, comment counts, and rank total.
  */
 export async function enrichLogs(
   logs: GameLogWithGame[],
@@ -13,7 +13,10 @@ export async function enrichLogs(
 
   const logIds = logs.map((l) => l.id);
 
-  const [likesRes, myLikesRes, tagMapRes, commentsRes] = await Promise.all([
+  // Check if any of the current user's logs have a position (are ranked)
+  const hasRankedLogs = logs.some((l) => l.user_id === currentUserId && l.position != null);
+
+  const [likesRes, myLikesRes, tagMapRes, commentsRes, rankTotal] = await Promise.all([
     // Fetch all likes with reaction_type
     supabase
       .from('likes')
@@ -35,6 +38,8 @@ export async function enrichLogs(
       .from('comments')
       .select('log_id')
       .in('log_id', logIds),
+    // Fetch rank total only if needed
+    hasRankedLogs ? fetchRankedCount(currentUserId) : Promise.resolve(0),
   ]);
 
   // Build reaction count map and total like count map
@@ -68,29 +73,14 @@ export async function enrichLogs(
     commentCountMap[row.log_id] = (commentCountMap[row.log_id] ?? 0) + 1;
   }
 
-  // Fetch rankings for current user's logs
-  const myGameIds = logs
-    .filter((l) => l.user_id === currentUserId)
-    .map((l) => l.game_id);
-  let rankingsMap: Record<string, { position: number; total: number }> = {};
-  if (myGameIds.length > 0) {
-    try {
-      rankingsMap = await fetchRankingsForGames(currentUserId, myGameIds);
-    } catch {}
-  }
-
-  return logs.map((l) => {
-    const ranking = l.user_id === currentUserId ? rankingsMap[l.game_id] : undefined;
-    return {
-      ...l,
-      like_count: likeCountMap[l.id] ?? 0,
-      liked_by_me: l.id in myReactionMap,
-      reactions: reactionsMap[l.id] ?? {},
-      my_reaction: myReactionMap[l.id] ?? null,
-      tags: tagsMap[l.id] ?? [],
-      comment_count: commentCountMap[l.id] ?? 0,
-      rank_position: ranking?.position,
-      rank_total: ranking?.total,
-    };
-  });
+  return logs.map((l) => ({
+    ...l,
+    like_count: likeCountMap[l.id] ?? 0,
+    liked_by_me: l.id in myReactionMap,
+    reactions: reactionsMap[l.id] ?? {},
+    my_reaction: myReactionMap[l.id] ?? null,
+    tags: tagsMap[l.id] ?? [],
+    comment_count: commentCountMap[l.id] ?? 0,
+    rank_total: l.user_id === currentUserId && l.position != null ? rankTotal : undefined,
+  }));
 }

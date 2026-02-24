@@ -1,20 +1,24 @@
 import { supabase } from './supabase';
-import type { GameWithTeams } from '@/types/database';
+import type { GameWithTeams, Sentiment, FanOf } from '@/types/database';
 import type { ComparisonGame } from './ranking';
 
 export interface RankedGame {
   game_id: string;
   position: number;
+  sentiment: Sentiment | null;
+  fan_of: FanOf | null;
   game: GameWithTeams;
 }
 
 /** Fetch the user's full ranked list with game details, ordered by position */
 export async function fetchRankedList(userId: string): Promise<RankedGame[]> {
   const { data, error } = await supabase
-    .from('game_rankings')
+    .from('game_logs')
     .select(`
       game_id,
       position,
+      sentiment,
+      fan_of,
       game:games (
         *,
         home_team:teams!games_home_team_id_fkey (*),
@@ -23,6 +27,7 @@ export async function fetchRankedList(userId: string): Promise<RankedGame[]> {
       )
     `)
     .eq('user_id', userId)
+    .not('position', 'is', null)
     .order('position', { ascending: true });
 
   if (error) throw error;
@@ -32,9 +37,10 @@ export async function fetchRankedList(userId: string): Promise<RankedGame[]> {
 /** Fetch just the ranked game count for a user */
 export async function fetchRankedCount(userId: string): Promise<number> {
   const { count, error } = await supabase
-    .from('game_rankings')
+    .from('game_logs')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .not('position', 'is', null);
 
   if (error) throw error;
   return count ?? 0;
@@ -44,26 +50,30 @@ export async function fetchRankedCount(userId: string): Promise<number> {
 export async function fetchGameRanking(
   userId: string,
   gameId: string,
-): Promise<{ position: number; total: number } | null> {
+): Promise<{ position: number; total: number; sentiment: Sentiment | null; fanOf: FanOf | null } | null> {
   const [rankingRes, countRes] = await Promise.all([
     supabase
-      .from('game_rankings')
-      .select('position')
+      .from('game_logs')
+      .select('position, sentiment, fan_of')
       .eq('user_id', userId)
       .eq('game_id', gameId)
+      .not('position', 'is', null)
       .maybeSingle(),
     supabase
-      .from('game_rankings')
+      .from('game_logs')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
+      .eq('user_id', userId)
+      .not('position', 'is', null),
   ]);
 
   if (rankingRes.error) throw rankingRes.error;
   if (!rankingRes.data) return null;
 
   return {
-    position: rankingRes.data.position,
+    position: rankingRes.data.position as number,
     total: countRes.count ?? 0,
+    sentiment: rankingRes.data.sentiment as Sentiment | null,
+    fanOf: rankingRes.data.fan_of as FanOf | null,
   };
 }
 
@@ -104,31 +114,29 @@ export async function fetchComparisonGames(
   }));
 }
 
-/** Batch fetch rankings for a list of game IDs (for enriching logs) */
-export async function fetchRankingsForGames(
+/** Update sentiment and fan_of on a game log row (called during ranking flow) */
+export async function updateLogRankingMeta(
   userId: string,
-  gameIds: string[],
-): Promise<Record<string, { position: number; total: number }>> {
-  if (gameIds.length === 0) return {};
+  gameId: string,
+  sentiment: Sentiment,
+  fanOf: FanOf,
+): Promise<void> {
+  const { error } = await supabase
+    .from('game_logs')
+    .update({ sentiment, fan_of: fanOf, updated_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('game_id', gameId);
 
-  const [rankingsRes, countRes] = await Promise.all([
-    supabase
-      .from('game_rankings')
-      .select('game_id, position')
-      .eq('user_id', userId)
-      .in('game_id', gameIds),
-    supabase
-      .from('game_rankings')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
-  ]);
+  if (error) throw error;
+}
 
-  if (rankingsRes.error) throw rankingsRes.error;
+/** Fetch user's favorite team IDs */
+export async function fetchFavoriteTeamIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('user_favorite_teams')
+    .select('team_id')
+    .eq('user_id', userId);
 
-  const total = countRes.count ?? 0;
-  const result: Record<string, { position: number; total: number }> = {};
-  for (const row of rankingsRes.data ?? []) {
-    result[row.game_id] = { position: row.position, total };
-  }
-  return result;
+  if (error) throw error;
+  return (data ?? []).map((r) => r.team_id);
 }

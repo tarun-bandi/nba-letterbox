@@ -1,9 +1,11 @@
-import type { GameWithTeams } from '@/types/database';
+import type { GameWithTeams, Sentiment, FanOf } from '@/types/database';
 
-/** Derive a 0-10 score from position in ranked list */
-export function deriveScore(position: number, totalCount: number): number {
+/** Derive a 0-10 score from position in ranked list, with optional fan boost */
+export function deriveScore(position: number, totalCount: number, fanOf?: FanOf | null): number {
   if (totalCount <= 1) return 10;
-  return Math.round((10 * (1 - (position - 1) / (totalCount - 1))) * 10) / 10;
+  const baseScore = 10 * (1 - (position - 1) / (totalCount - 1));
+  const fanBoost = fanOf && fanOf !== 'neutral' ? 0.5 : 0;
+  return Math.round(Math.min(10, baseScore + fanBoost) * 10) / 10;
 }
 
 /** Format score for display: e.g. "7.6" */
@@ -11,27 +13,33 @@ export function formatScore(score: number): string {
   return score.toFixed(1);
 }
 
-export type TriageBucket = 'loved' | 'decent' | 'meh';
-
-/** Given a triage bucket and total ranked count, return the [low, high] position range (1-indexed, inclusive) */
-export function triageRange(
-  bucket: TriageBucket,
+/** Given a sentiment and total ranked count, return the [low, high] position range (1-indexed, inclusive) */
+export function sentimentRange(
+  sentiment: Sentiment,
   totalCount: number,
 ): [number, number] {
-  const third = Math.ceil(totalCount / 3);
-  switch (bucket) {
+  const quarter = Math.ceil(totalCount / 4);
+  switch (sentiment) {
     case 'loved':
-      return [1, Math.min(third, totalCount)];
-    case 'decent':
-      return [third + 1, Math.min(third * 2, totalCount)];
-    case 'meh':
-      return [third * 2 + 1, totalCount];
+      return [1, Math.min(quarter, totalCount)];
+    case 'good':
+      return [quarter + 1, Math.min(quarter * 2, totalCount)];
+    case 'okay':
+      return [quarter * 2 + 1, Math.min(quarter * 3, totalCount)];
+    case 'bad':
+      return [quarter * 3 + 1, totalCount];
   }
 }
 
-/** Whether triage should be shown (6+ ranked games) */
-export function shouldShowTriage(rankedCount: number): boolean {
-  return rankedCount >= 6;
+/** Detect fan affiliation based on user's favorite teams */
+export function detectFanOf(game: GameWithTeams, favoriteTeamIds: string[]): FanOf {
+  if (favoriteTeamIds.length === 0) return 'neutral';
+  const isHomeFan = favoriteTeamIds.includes(game.home_team_id);
+  const isAwayFan = favoriteTeamIds.includes(game.away_team_id);
+  if (isHomeFan && isAwayFan) return 'both';
+  if (isHomeFan) return 'home';
+  if (isAwayFan) return 'away';
+  return 'neutral';
 }
 
 export interface ComparisonState {

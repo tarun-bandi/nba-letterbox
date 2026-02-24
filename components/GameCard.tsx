@@ -328,8 +328,8 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
               </Text>
             </View>
           )}
-          {log.rank_position != null && log.rank_total != null && (
-            <RankBadge position={log.rank_position} total={log.rank_total} />
+          {log.position != null && log.rank_total != null && (
+            <RankBadge position={log.position} total={log.rank_total} fanOf={log.fan_of} />
           )}
         </View>
 

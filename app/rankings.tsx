@@ -1,7 +1,7 @@
 import { View, Text, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { Trophy } from 'lucide-react-native';
+import { Trophy, Heart } from 'lucide-react-native';
 import { useAuthStore } from '@/lib/store/authStore';
 import { fetchRankedList, type RankedGame } from '@/lib/rankingService';
 import { deriveScore, formatScore } from '@/lib/ranking';
@@ -40,7 +40,7 @@ export default function RankingsScreen() {
   }
 
   const renderItem = ({ item }: { item: RankedGame }) => {
-    const score = deriveScore(item.position, totalCount);
+    const score = deriveScore(item.position, totalCount, item.fan_of);
     const game = item.game;
 
     return (
@@ -85,9 +85,14 @@ export default function RankingsScreen() {
 
         {/* Score */}
         <View className="items-end ml-3">
-          <Text className="text-accent font-bold text-lg">
-            {formatScore(score)}
-          </Text>
+          <View className="flex-row items-center gap-1">
+            <Text className="text-accent font-bold text-lg">
+              {formatScore(score)}
+            </Text>
+            {item.fan_of && item.fan_of !== 'neutral' && (
+              <Heart size={12} color="#c9a84c" fill="#c9a84c" />
+            )}
+          </View>
         </View>
       </TouchableOpacity>
     );
