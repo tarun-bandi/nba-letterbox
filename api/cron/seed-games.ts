@@ -30,6 +30,8 @@ interface BdlGamesResponse {
 function mapStatus(status: string): 'scheduled' | 'live' | 'final' {
   const s = status.toLowerCase();
   if (s === 'final' || s.startsWith('final/')) return 'final';
+  // BDL uses a datetime string (e.g. "2026-02-25T00:00:00Z") for scheduled games
+  if (s.startsWith('20')) return 'scheduled';
   if (/\bq\d/.test(s) || s.includes('half') || s.includes('ot')) return 'live';
   return 'scheduled';
 }
