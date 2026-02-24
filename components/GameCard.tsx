@@ -22,6 +22,7 @@ import StarRating from './StarRating';
 import TeamLogo from './TeamLogo';
 import PlayoffBadge from './PlayoffBadge';
 import ReactionPicker, { REACTION_EMOJI, REACTION_CONFIG } from './ReactionPicker';
+import { gameUrl } from '@/lib/urls';
 import type { GameLogWithGame, ReactionType } from '@/types/database';
 
 interface GameCardProps {
@@ -223,8 +224,9 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
     if (!game) return;
     const rating = ratingDisplay !== null ? ` \u2605${ratingDisplay.toFixed(1)}` : '';
     const snippet = log.review ? ` \u2014 "${log.review.slice(0, 80)}${log.review.length > 80 ? '...' : ''}"` : '';
-    const message = `I rated ${game.away_team.abbreviation} @ ${game.home_team.abbreviation}${rating} on NBA Letterbox${snippet}`;
-    RNShare.share({ message });
+    const url = gameUrl(game.id);
+    const message = `I rated ${game.away_team.abbreviation} @ ${game.home_team.abbreviation}${rating} on NBA Letterbox${snippet}\n${url}`;
+    RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
   };
 
   const topReactions = getTopReactions(log.reactions);

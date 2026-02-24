@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +9,7 @@ import {
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { UserPlus } from 'lucide-react-native';
+import { UserPlus, Users } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
@@ -18,6 +19,7 @@ import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
 import { DiscoverSkeleton } from '@/components/Skeleton';
 import { PageContainer } from '@/components/PageContainer';
+import FindFriendsSheet from '@/components/FindFriendsSheet';
 import type { GameWithTeams, UserProfile, LogTag } from '@/types/database';
 
 interface MostLoggedGame {
@@ -238,6 +240,7 @@ export default function DiscoverScreen() {
   const { user } = useAuthStore();
   const toast = useToastStore();
   const queryClient = useQueryClient();
+  const [showFindFriends, setShowFindFriends] = useState(false);
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['discover', user?.id],
@@ -292,6 +295,21 @@ export default function DiscoverScreen() {
       }
     >
       <PageContainer>
+      {/* Find Friends */}
+      <View className="px-4 pt-4">
+        <TouchableOpacity
+          className="bg-accent/10 border border-accent/30 rounded-xl p-4 flex-row items-center gap-3"
+          onPress={() => setShowFindFriends(true)}
+          activeOpacity={0.7}
+        >
+          <Users size={20} color="#c9a84c" />
+          <View className="flex-1">
+            <Text className="text-white font-semibold">Find Friends</Text>
+            <Text className="text-muted text-xs mt-0.5">See who from your contacts is on NBA Letterbox</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       {/* People to Follow */}
       {showSuggestions && (
         <View className="px-4 pt-4">
@@ -485,6 +503,9 @@ export default function DiscoverScreen() {
           ))
         )}
       </View>
+      {showFindFriends && (
+        <FindFriendsSheet onClose={() => setShowFindFriends(false)} />
+      )}
       </PageContainer>
     </ScrollView>
   );

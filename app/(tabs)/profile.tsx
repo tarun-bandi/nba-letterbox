@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Share as RNShare,
+  Platform,
 } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Settings, BarChart3 } from 'lucide-react-native';
+import { Pencil, Settings, BarChart3, Share2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
@@ -27,6 +29,7 @@ import DiaryCalendar from '@/components/DiaryCalendar';
 import { ProfileSkeleton } from '@/components/Skeleton';
 import ErrorState from '@/components/ErrorState';
 import { PageContainer } from '@/components/PageContainer';
+import { userUrl } from '@/lib/urls';
 import type { GameLogWithGame, UserProfile, List, Team, Player } from '@/types/database';
 
 interface ProfileData {
@@ -206,6 +209,16 @@ export default function ProfileScreen() {
             </View>
           </View>
           <View className="flex-row items-center gap-2">
+            <TouchableOpacity
+              onPress={() => {
+                const url = userUrl(profile.handle);
+                const message = `Follow me on NBA Letterbox!\n${url}`;
+                RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
+              }}
+              className="p-2"
+            >
+              <Share2 size={20} color="#6b7280" />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setShowEditProfile(true)}
               className="p-2"
