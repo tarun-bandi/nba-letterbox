@@ -99,21 +99,21 @@ export default function TodaysGames() {
         contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
       >
         {games.map((game) => {
+          const live = liveStatusMap?.get(game.provider_game_id);
           const isFav =
             favoriteTeamIds.has(game.home_team_id) ||
             favoriteTeamIds.has(game.away_team_id);
-          const isLive = game.status === 'live';
-          const isFinal = game.status === 'final';
+          // Prefer BDL live data over Supabase for immediate updates
+          const status = live?.status ?? game.status;
+          const homeScore = live ? live.homeScore : game.home_team_score;
+          const awayScore = live ? live.awayScore : game.away_team_score;
+          const isLive = status === 'live';
+          const isFinal = status === 'final';
+          const hasScores = isLive || isFinal;
           const homeWon =
-            isFinal &&
-            game.home_team_score != null &&
-            game.away_team_score != null &&
-            game.home_team_score > game.away_team_score;
+            isFinal && homeScore != null && awayScore != null && homeScore > awayScore;
           const awayWon =
-            isFinal &&
-            game.home_team_score != null &&
-            game.away_team_score != null &&
-            game.away_team_score > game.home_team_score;
+            isFinal && homeScore != null && awayScore != null && awayScore > homeScore;
 
           return (
             <TouchableOpacity
@@ -131,7 +131,7 @@ export default function TodaysGames() {
                   <View className="flex-row items-center gap-1">
                     <View className="w-2 h-2 rounded-full bg-accent-red" />
                     <Text className="text-accent-red text-xs font-bold">
-                      {liveStatusMap?.get(game.provider_game_id) ?? 'In Progress'}
+                      {live?.label ?? 'In Progress'}
                     </Text>
                   </View>
                 ) : isFinal ? (
@@ -160,13 +160,13 @@ export default function TodaysGames() {
                     {game.away_team.abbreviation}
                   </Text>
                 </View>
-                {game.away_team_score != null && (
+                {hasScores && awayScore != null && (
                   <Text
                     className={`text-sm ${
                       awayWon ? 'text-white font-bold' : 'text-muted'
                     }`}
                   >
-                    {game.away_team_score}
+                    {awayScore}
                   </Text>
                 )}
               </View>
@@ -186,13 +186,13 @@ export default function TodaysGames() {
                     {game.home_team.abbreviation}
                   </Text>
                 </View>
-                {game.home_team_score != null && (
+                {hasScores && homeScore != null && (
                   <Text
                     className={`text-sm ${
                       homeWon ? 'text-white font-bold' : 'text-muted'
                     }`}
                   >
-                    {game.home_team_score}
+                    {homeScore}
                   </Text>
                 )}
               </View>
