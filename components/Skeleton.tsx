@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, Image, ActivityIndicator } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -121,10 +121,13 @@ export function ProfileSkeleton() {
 
 export function FeedSkeleton() {
   return (
-    <View className="flex-1 bg-background px-4 pt-3">
-      <GameCardSkeleton />
-      <GameCardSkeleton />
-      <GameCardSkeleton />
+    <View className="flex-1 bg-background items-center justify-center">
+      <Image
+        source={require('@/assets/splash-icon.png')}
+        style={{ width: 80, height: 80, opacity: 0.6, tintColor: '#c9a84c' }}
+        resizeMode="contain"
+      />
+      <ActivityIndicator color="#c9a84c" size="small" style={{ marginTop: 20 }} />
     </View>
   );
 }
@@ -163,34 +166,13 @@ function DiscoverUserSkeleton() {
 
 export function DiscoverSkeleton() {
   return (
-    <View className="flex-1 bg-background">
-      {/* Find Friends card */}
-      <View className="px-4 pt-4">
-        <Skeleton width="100%" height={60} borderRadius={12} />
-      </View>
-      {/* Most Logged section */}
-      <View className="px-4 pt-5">
-        <Skeleton width={180} height={20} borderRadius={4} className="mb-3" />
-        <DiscoverRowSkeleton widthA={36} widthB={36} />
-        <DiscoverRowSkeleton widthA={40} widthB={32} />
-        <DiscoverRowSkeleton widthA={36} widthB={40} />
-      </View>
-      {/* Active Reviewers section */}
-      <View className="px-4 pt-5">
-        <Skeleton width={140} height={20} borderRadius={4} className="mb-3" />
-        <DiscoverUserSkeleton />
-        <DiscoverUserSkeleton />
-      </View>
-      {/* Trending tags */}
-      <View className="px-4 pt-5">
-        <Skeleton width={130} height={20} borderRadius={4} className="mb-3" />
-        <View className="flex-row flex-wrap gap-2">
-          <PillSkeleton width={96} />
-          <PillSkeleton width={72} />
-          <PillSkeleton width={88} />
-          <PillSkeleton width={80} />
-        </View>
-      </View>
+    <View className="flex-1 bg-background items-center justify-center">
+      <Image
+        source={require('@/assets/splash-icon.png')}
+        style={{ width: 80, height: 80, opacity: 0.6, tintColor: '#c9a84c' }}
+        resizeMode="contain"
+      />
+      <ActivityIndicator color="#c9a84c" size="small" style={{ marginTop: 20 }} />
     </View>
   );
 }
