@@ -1,18 +1,22 @@
 -- Unify game_rankings into game_logs: add position, sentiment, fan_of columns
 
 -- Add columns to game_logs
-ALTER TABLE public.game_logs ADD COLUMN position integer;
-ALTER TABLE public.game_logs ADD COLUMN sentiment text CHECK (sentiment IN ('loved','good','okay','bad'));
-ALTER TABLE public.game_logs ADD COLUMN fan_of text CHECK (fan_of IN ('home','away','both','neutral'));
+ALTER TABLE public.game_logs ADD COLUMN IF NOT EXISTS position integer;
+ALTER TABLE public.game_logs ADD COLUMN IF NOT EXISTS sentiment text CHECK (sentiment IN ('loved','good','okay','bad'));
+ALTER TABLE public.game_logs ADD COLUMN IF NOT EXISTS fan_of text CHECK (fan_of IN ('home','away','both','neutral'));
 
--- Migrate existing ranking data
-UPDATE public.game_logs gl
-SET position = gr.position
-FROM public.game_rankings gr
-WHERE gl.user_id = gr.user_id AND gl.game_id = gr.game_id;
+-- Migrate existing ranking data (skip if table already dropped)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'game_rankings') THEN
+    UPDATE public.game_logs gl
+    SET position = gr.position
+    FROM public.game_rankings gr
+    WHERE gl.user_id = gr.user_id AND gl.game_id = gr.game_id;
+  END IF;
+END $$;
 
 -- Index for ranked list queries
-CREATE INDEX game_logs_user_position_idx ON public.game_logs (user_id, position)
+CREATE INDEX IF NOT EXISTS game_logs_user_position_idx ON public.game_logs (user_id, position)
 WHERE position IS NOT NULL;
 
 -- Rewrite insert RPC to target game_logs
@@ -47,4 +51,4 @@ END;
 $$;
 
 -- Drop old table
-DROP TABLE public.game_rankings CASCADE;
+DROP TABLE IF EXISTS public.game_rankings CASCADE;
