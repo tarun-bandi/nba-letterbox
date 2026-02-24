@@ -48,24 +48,27 @@ export function formatLiveStatus(
   const mapped = mapStatus(status);
   if (mapped !== 'live') return null;
 
-  // BDL often puts the period/time info directly in the status string
-  // e.g. "Q3 5:20", "Halftime", "OT1 2:00"
   const s = status.trim();
-  // Match "Q3 5:20", "3rd Qtr", "Halftime", "OT1 2:00"
-  if (/\bq\d/i.test(s) || /\bot/i.test(s) || /half/i.test(s) || /qtr/i.test(s)) {
-    // Normalize "3rd Qtr" → "Q3" etc.
-    const qtrMatch = s.match(/(\d)(st|nd|rd|th)\s+qtr/i);
-    if (qtrMatch) {
-      const label = `Q${qtrMatch[1]}`;
-      return time ? `${label} ${time}` : label;
-    }
+
+  // If status already contains a timestamp (e.g. "Q3 5:20", "OT1 2:00"), use as-is
+  if (/\b(q\d|ot\d?)\s+\d+:\d+/i.test(s)) {
     return s;
   }
 
-  // Fallback: build from period + time
-  if (period > 0 && time) {
+  // Normalize "3rd Qtr" → "Q3" etc.
+  const qtrMatch = s.match(/(\d)(st|nd|rd|th)\s+qtr/i);
+  if (qtrMatch) {
+    const label = `Q${qtrMatch[1]}`;
+    return time ? `${label} ${time}` : label;
+  }
+
+  // "Halftime" → return as-is
+  if (/half/i.test(s)) return s;
+
+  // Build from period + time (status is bare "Q3", "OT1", etc.)
+  if (period > 0) {
     const label = period <= 4 ? `Q${period}` : `OT${period - 4}`;
-    return `${label} ${time}`;
+    return time ? `${label} ${time}` : label;
   }
 
   return 'In Progress';
