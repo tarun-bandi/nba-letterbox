@@ -30,7 +30,7 @@ interface BdlGamesResponse {
 export function mapStatus(status: string): 'scheduled' | 'live' | 'final' {
   const s = status.toLowerCase();
   if (s === 'final' || s.startsWith('final/')) return 'final';
-  if (/\bq\d/.test(s) || s.includes('half') || s.includes('ot')) return 'live';
+  if (/\bq\d/.test(s) || /qtr/.test(s) || /\d(st|nd|rd|th)\s+qtr/i.test(s) || s.includes('half') || s.includes('ot')) return 'live';
   return 'scheduled';
 }
 
@@ -49,7 +49,14 @@ export function formatLiveStatus(
   // BDL often puts the period/time info directly in the status string
   // e.g. "Q3 5:20", "Halftime", "OT1 2:00"
   const s = status.trim();
-  if (/\bq\d/i.test(s) || /\bot/i.test(s) || /half/i.test(s)) {
+  // Match "Q3 5:20", "3rd Qtr", "Halftime", "OT1 2:00"
+  if (/\bq\d/i.test(s) || /\bot/i.test(s) || /half/i.test(s) || /qtr/i.test(s)) {
+    // Normalize "3rd Qtr" → "Q3" etc.
+    const qtrMatch = s.match(/(\d)(st|nd|rd|th)\s+qtr/i);
+    if (qtrMatch) {
+      const label = `Q${qtrMatch[1]}`;
+      return time ? `${label} ${time}` : label;
+    }
     return s;
   }
 
