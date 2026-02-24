@@ -109,13 +109,13 @@ export default function DiaryCalendar({ userId }: DiaryCalendarProps) {
       {/* Header */}
       <View className="flex-row items-center justify-between mb-3">
         <TouchableOpacity onPress={goBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ChevronLeft size={20} color="#c9a84c" />
+          <ChevronLeft size={20} color="#e5e5e5" />
         </TouchableOpacity>
         <Text className="text-white font-semibold text-base">
           {MONTH_NAMES[month]} {year}
         </Text>
         <TouchableOpacity onPress={goForward} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ChevronRight size={20} color="#c9a84c" />
+          <ChevronRight size={20} color="#e5e5e5" />
         </TouchableOpacity>
       </View>
 
@@ -163,14 +163,14 @@ export default function DiaryCalendar({ userId }: DiaryCalendarProps) {
                         <View
                           key={j}
                           className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: '#c9a84c' }}
+                          style={{ backgroundColor: '#e5e5e5' }}
                         />
                       ))
                     ) : (
                       <>
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
+                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#e5e5e5' }} />
+                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#e5e5e5' }} />
+                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#e5e5e5' }} />
                       </>
                     )}
                   </View>
@@ -199,14 +199,14 @@ export default function DiaryCalendar({ userId }: DiaryCalendarProps) {
                         <View
                           key={j}
                           className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: '#c9a84c' }}
+                          style={{ backgroundColor: '#e5e5e5' }}
                         />
                       ))
                     ) : (
                       <>
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
+                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#e5e5e5' }} />
+                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#e5e5e5' }} />
+                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#e5e5e5' }} />
                       </>
                     )}
                   </View>

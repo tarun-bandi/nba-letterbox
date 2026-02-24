@@ -178,7 +178,7 @@ export default function UserProfileScreen() {
         <RefreshControl
           refreshing={isRefetching}
           onRefresh={refetch}
-          tintColor="#c9a84c"
+          tintColor="#e5e5e5"
         />
       }
     >

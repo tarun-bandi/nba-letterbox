@@ -44,7 +44,7 @@ export default function SelectedTeamsBar({
           onPress={onPickOpponent}
           activeOpacity={0.7}
         >
-          <Plus size={14} color="#c9a84c" />
+          <Plus size={14} color="#e5e5e5" />
           <Text className="text-accent text-sm font-medium">vs</Text>
         </TouchableOpacity>
       )}

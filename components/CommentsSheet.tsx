@@ -158,7 +158,7 @@ export default function CommentsSheet({
 
             {loading ? (
               <View className="items-center py-8">
-                <ActivityIndicator color="#c9a84c" />
+                <ActivityIndicator color="#e5e5e5" />
               </View>
             ) : (
               <FlatList
@@ -223,11 +223,11 @@ export default function CommentsSheet({
                 className="p-2"
               >
                 {posting ? (
-                  <ActivityIndicator color="#c9a84c" size="small" />
+                  <ActivityIndicator color="#e5e5e5" size="small" />
                 ) : (
                   <Send
                     size={22}
-                    color={body.trim() ? '#c9a84c' : '#6b7280'}
+                    color={body.trim() ? '#e5e5e5' : '#6b7280'}
                   />
                 )}
               </TouchableOpacity>

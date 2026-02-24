@@ -207,7 +207,7 @@ export default function PlayerDetailScreen() {
         <RefreshControl
           refreshing={isRefetching}
           onRefresh={refetch}
-          tintColor="#c9a84c"
+          tintColor="#e5e5e5"
         />
       }
     >
@@ -251,8 +251,8 @@ export default function PlayerDetailScreen() {
           >
             <Heart
               size={24}
-              color="#c9a84c"
-              fill={isFavorite ? '#c9a84c' : 'transparent'}
+              color="#e5e5e5"
+              fill={isFavorite ? '#e5e5e5' : 'transparent'}
             />
           </TouchableOpacity>
         </View>

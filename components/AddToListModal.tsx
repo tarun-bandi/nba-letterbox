@@ -117,7 +117,7 @@ export default function AddToListModal({ gameId, onClose }: AddToListModalProps)
 
           {loading ? (
             <View className="py-12 items-center">
-              <ActivityIndicator color="#c9a84c" />
+              <ActivityIndicator color="#e5e5e5" />
             </View>
           ) : (
             <FlatList
@@ -130,7 +130,7 @@ export default function AddToListModal({ gameId, onClose }: AddToListModalProps)
                   onPress={() => setShowCreateList(true)}
                 >
                   <View className="w-10 h-10 bg-accent/20 rounded-lg items-center justify-center">
-                    <Plus size={20} color="#c9a84c" />
+                    <Plus size={20} color="#e5e5e5" />
                   </View>
                   <Text className="text-accent font-medium text-base">
                     Create New List

@@ -123,7 +123,7 @@ export default function FavoriteTeamsModal({
 
             {loading ? (
               <View className="items-center py-8">
-                <ActivityIndicator color="#c9a84c" />
+                <ActivityIndicator color="#e5e5e5" />
               </View>
             ) : (
               <ScrollView
@@ -153,7 +153,7 @@ export default function FavoriteTeamsModal({
                         >
                           {team.abbreviation}
                         </Text>
-                        {isSelected && <Check size={14} color="#c9a84c" />}
+                        {isSelected && <Check size={14} color="#e5e5e5" />}
                       </TouchableOpacity>
                     );
                   })}

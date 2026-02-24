@@ -15,7 +15,7 @@ export default function TeamGrid({ query, onSelectTeam, excludeTeamId }: TeamGri
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator color="#c9a84c" />
+        <ActivityIndicator color="#e5e5e5" />
       </View>
     );
   }

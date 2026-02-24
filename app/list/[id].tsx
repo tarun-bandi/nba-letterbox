@@ -116,7 +116,7 @@ export default function ListDetailScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator color="#c9a84c" size="large" />
+        <ActivityIndicator color="#e5e5e5" size="large" />
       </View>
     );
   }
@@ -161,7 +161,7 @@ export default function ListDetailScreen() {
                   onPress={() => setShowEditModal(true)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Pencil size={18} color="#c9a84c" />
+                  <Pencil size={18} color="#e5e5e5" />
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="p-2"

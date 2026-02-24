@@ -115,7 +115,7 @@ export default function FindFriendsSheet({ onClose }: FindFriendsSheetProps) {
 
         {state === 'loading' && (
           <View className="flex-1 items-center justify-center">
-            <ActivityIndicator color="#c9a84c" size="large" />
+            <ActivityIndicator color="#e5e5e5" size="large" />
             <Text className="text-muted text-sm mt-3">
               Checking your contacts...
             </Text>

@@ -161,7 +161,7 @@ export default function SettingsScreen() {
             <Switch
               value={spoilerFreeMode}
               onValueChange={setSpoilerFreeMode}
-              trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+              trackColor={{ false: '#2a2a2a', true: '#e5e5e5' }}
               thumbColor="#ffffff"
             />
           </View>
@@ -184,7 +184,7 @@ export default function SettingsScreen() {
             <Switch
               value={notifyReactions}
               onValueChange={setNotifyReactions}
-              trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+              trackColor={{ false: '#2a2a2a', true: '#e5e5e5' }}
               thumbColor="#ffffff"
             />
           </View>
@@ -198,7 +198,7 @@ export default function SettingsScreen() {
             <Switch
               value={notifyComments}
               onValueChange={setNotifyComments}
-              trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+              trackColor={{ false: '#2a2a2a', true: '#e5e5e5' }}
               thumbColor="#ffffff"
             />
           </View>
@@ -212,7 +212,7 @@ export default function SettingsScreen() {
             <Switch
               value={notifyFollows}
               onValueChange={setNotifyFollows}
-              trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+              trackColor={{ false: '#2a2a2a', true: '#e5e5e5' }}
               thumbColor="#ffffff"
             />
           </View>
@@ -236,7 +236,7 @@ export default function SettingsScreen() {
             activeOpacity={0.7}
           >
             <View className="flex-row items-center gap-3">
-              <Share2 size={18} color="#c9a84c" />
+              <Share2 size={18} color="#e5e5e5" />
               <Text className="text-white font-medium">Invite Friends</Text>
             </View>
             <ChevronRight size={16} color="#6b7280" />
@@ -247,7 +247,7 @@ export default function SettingsScreen() {
             activeOpacity={0.7}
           >
             <View className="flex-row items-center gap-3">
-              <Users size={18} color="#c9a84c" />
+              <Users size={18} color="#e5e5e5" />
               <Text className="text-white font-medium">Find Friends from Contacts</Text>
             </View>
             <ChevronRight size={16} color="#6b7280" />

@@ -290,7 +290,7 @@ export default function DiscoverScreen() {
         <RefreshControl
           refreshing={isRefetching}
           onRefresh={refetch}
-          tintColor="#c9a84c"
+          tintColor="#e5e5e5"
         />
       }
     >
@@ -302,7 +302,7 @@ export default function DiscoverScreen() {
           onPress={() => setShowFindFriends(true)}
           activeOpacity={0.7}
         >
-          <Users size={20} color="#c9a84c" />
+          <Users size={20} color="#e5e5e5" />
           <View className="flex-1">
             <Text className="text-white font-semibold">Find Friends</Text>
             <Text className="text-muted text-xs mt-0.5">See who from your contacts is on NBA Letterbox</Text>

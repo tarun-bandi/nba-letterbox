@@ -23,7 +23,7 @@ export default function RatingHistogram({ ratings }: RatingHistogramProps) {
             className="flex-1 mx-0.5 rounded-t-sm"
             style={{
               height: max > 0 ? Math.max((count / max) * 40, count > 0 ? 3 : 0) : 0,
-              backgroundColor: count > 0 ? '#c9a84c' : '#2a2a2a',
+              backgroundColor: count > 0 ? '#e5e5e5' : '#2a2a2a',
               minHeight: 2,
             }}
           />

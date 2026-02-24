@@ -302,7 +302,7 @@ export default function SearchScreen() {
               }
             }}
             className="px-4 py-1.5 rounded-full border border-border bg-background"
-            style={searchMode === mode ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
+            style={searchMode === mode ? { backgroundColor: '#e5e5e5', borderColor: '#e5e5e5' } : undefined}
           >
             <Text
               className="text-sm font-medium capitalize text-muted"
@@ -346,7 +346,7 @@ export default function SearchScreen() {
               <TouchableOpacity
                 onPress={() => setSelectedSeasonId(null)}
                 className="px-3 py-1.5 rounded-full border border-border bg-background"
-                style={selectedSeasonId === null ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
+                style={selectedSeasonId === null ? { backgroundColor: '#e5e5e5', borderColor: '#e5e5e5' } : undefined}
               >
                 <Text
                   className="text-sm font-medium text-muted"
@@ -360,7 +360,7 @@ export default function SearchScreen() {
                   key={season.id}
                   onPress={() => setSelectedSeasonId(season.id)}
                   className="px-3 py-1.5 rounded-full border border-border bg-background"
-                  style={selectedSeasonId === season.id ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
+                  style={selectedSeasonId === season.id ? { backgroundColor: '#e5e5e5', borderColor: '#e5e5e5' } : undefined}
                 >
                   <Text
                     className="text-sm font-medium text-muted"
@@ -375,7 +375,7 @@ export default function SearchScreen() {
 
           {gamesQuery.isLoading ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator color="#c9a84c" />
+              <ActivityIndicator color="#e5e5e5" />
             </View>
           ) : (
             <FlatList
@@ -396,7 +396,7 @@ export default function SearchScreen() {
               ListFooterComponent={
                 gamesQuery.isFetchingNextPage ? (
                   <View className="py-4">
-                    <ActivityIndicator color="#c9a84c" />
+                    <ActivityIndicator color="#e5e5e5" />
                   </View>
                 ) : null
               }
@@ -417,7 +417,7 @@ export default function SearchScreen() {
                 <RefreshControl
                   refreshing={gamesQuery.isRefetching && !gamesQuery.isFetchingNextPage}
                   onRefresh={() => gamesQuery.refetch()}
-                  tintColor="#c9a84c"
+                  tintColor="#e5e5e5"
                 />
               }
             />
@@ -478,7 +478,7 @@ export default function SearchScreen() {
           ListFooterComponent={
             playersQuery.isFetchingNextPage ? (
               <View className="py-4">
-                <ActivityIndicator color="#c9a84c" />
+                <ActivityIndicator color="#e5e5e5" />
               </View>
             ) : null
           }
@@ -500,7 +500,7 @@ export default function SearchScreen() {
               <RefreshControl
                 refreshing={playersQuery.isRefetching && !playersQuery.isFetchingNextPage}
                 onRefresh={() => playersQuery.refetch()}
-                tintColor="#c9a84c"
+                tintColor="#e5e5e5"
               />
             ) : undefined
           }
@@ -548,7 +548,7 @@ export default function SearchScreen() {
           ListFooterComponent={
             usersQuery.isFetchingNextPage ? (
               <View className="py-4">
-                <ActivityIndicator color="#c9a84c" />
+                <ActivityIndicator color="#e5e5e5" />
               </View>
             ) : null
           }
@@ -570,7 +570,7 @@ export default function SearchScreen() {
               <RefreshControl
                 refreshing={usersQuery.isRefetching && !usersQuery.isFetchingNextPage}
                 onRefresh={() => usersQuery.refetch()}
-                tintColor="#c9a84c"
+                tintColor="#e5e5e5"
               />
             ) : undefined
           }

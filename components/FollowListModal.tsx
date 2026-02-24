@@ -95,7 +95,7 @@ export default function FollowListModal({
 
             {loading ? (
               <View className="items-center py-8">
-                <ActivityIndicator color="#c9a84c" />
+                <ActivityIndicator color="#e5e5e5" />
               </View>
             ) : (
               <FlatList

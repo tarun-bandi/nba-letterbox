@@ -181,7 +181,7 @@ export default function ProfileScreen() {
         <RefreshControl
           refreshing={isRefetching}
           onRefresh={refetch}
-          tintColor="#c9a84c"
+          tintColor="#e5e5e5"
         />
       }
     >
@@ -223,7 +223,7 @@ export default function ProfileScreen() {
               onPress={() => setShowEditProfile(true)}
               className="p-2"
             >
-              <Pencil size={20} color="#c9a84c" />
+              <Pencil size={20} color="#e5e5e5" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push('/settings')}
@@ -270,7 +270,7 @@ export default function ProfileScreen() {
           onPress={() => router.push('/stats')}
           activeOpacity={0.7}
         >
-          <BarChart3 size={16} color="#c9a84c" />
+          <BarChart3 size={16} color="#e5e5e5" />
           <Text className="text-accent font-semibold text-sm">View Stats</Text>
         </TouchableOpacity>
       </View>
@@ -293,7 +293,7 @@ export default function ProfileScreen() {
             onPress={() => setShowFavoriteTeams(true)}
             className="flex-row items-center gap-1"
           >
-            <Heart size={14} color="#c9a84c" />
+            <Heart size={14} color="#e5e5e5" />
             <Text className="text-accent text-sm font-medium">Edit</Text>
           </TouchableOpacity>
         </View>
@@ -334,7 +334,7 @@ export default function ProfileScreen() {
             onPress={() => setShowFavoritePlayers(true)}
             className="flex-row items-center gap-1"
           >
-            <Heart size={14} color="#c9a84c" />
+            <Heart size={14} color="#e5e5e5" />
             <Text className="text-accent text-sm font-medium">Edit</Text>
           </TouchableOpacity>
         </View>
@@ -384,7 +384,7 @@ export default function ProfileScreen() {
             onPress={() => setShowCreateList(true)}
             className="flex-row items-center gap-1"
           >
-            <Plus size={16} color="#c9a84c" />
+            <Plus size={16} color="#e5e5e5" />
             <Text className="text-accent text-sm font-medium">New</Text>
           </TouchableOpacity>
         </View>
@@ -427,7 +427,7 @@ export default function ProfileScreen() {
           activeOpacity={0.7}
         >
           <View className="flex-row items-center gap-3">
-            <Bookmark size={18} color="#c9a84c" />
+            <Bookmark size={18} color="#e5e5e5" />
             <Text className="text-white font-medium text-base">Watchlist</Text>
           </View>
           <View className="flex-row items-center gap-2">

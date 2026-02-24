@@ -73,7 +73,7 @@ export default function OnboardingFavoriteTeams() {
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#c9a84c" />
+          <ActivityIndicator color="#e5e5e5" />
         </View>
       ) : (
         <ScrollView
@@ -103,7 +103,7 @@ export default function OnboardingFavoriteTeams() {
                   >
                     {team.abbreviation}
                   </Text>
-                  {isSelected && <Check size={14} color="#c9a84c" />}
+                  {isSelected && <Check size={14} color="#e5e5e5" />}
                 </TouchableOpacity>
               );
             })}

@@ -178,7 +178,7 @@ export default function FavoritePlayersModal({
                       <Text className="text-accent text-xs font-medium">
                         {player.first_name} {player.last_name}
                       </Text>
-                      <X size={12} color="#c9a84c" />
+                      <X size={12} color="#e5e5e5" />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -240,14 +240,14 @@ export default function FavoritePlayersModal({
                         </View>
                       </View>
                     </View>
-                    {isSelected && <Check size={16} color="#c9a84c" />}
+                    {isSelected && <Check size={16} color="#e5e5e5" />}
                   </TouchableOpacity>
                 );
               }}
               ListEmptyComponent={
                 searching ? (
                   <View className="items-center py-8">
-                    <ActivityIndicator color="#c9a84c" />
+                    <ActivityIndicator color="#e5e5e5" />
                   </View>
                 ) : debouncedQuery.length >= 2 ? (
                   <View className="items-center py-8">

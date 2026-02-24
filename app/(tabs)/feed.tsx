@@ -177,7 +177,7 @@ export default function FeedScreen() {
         ListFooterComponent={
           isFetchingNextPage ? (
             <View className="py-4">
-              <ActivityIndicator color="#c9a84c" />
+              <ActivityIndicator color="#e5e5e5" />
             </View>
           ) : null
         }
@@ -189,7 +189,7 @@ export default function FeedScreen() {
           <RefreshControl
             refreshing={isRefetching && !isFetchingNextPage}
             onRefresh={refetch}
-            tintColor="#c9a84c"
+            tintColor="#e5e5e5"
           />
         }
         showsVerticalScrollIndicator={false}

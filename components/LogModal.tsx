@@ -296,7 +296,7 @@ export default function LogModal({
                 <Switch
                   value={hasSpoilers}
                   onValueChange={setHasSpoilers}
-                  trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+                  trackColor={{ false: '#2a2a2a', true: '#e5e5e5' }}
                   thumbColor="#ffffff"
                 />
               </View>
