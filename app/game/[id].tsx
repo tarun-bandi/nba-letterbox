@@ -25,6 +25,7 @@ import PlayoffBadge from '@/components/PlayoffBadge';
 import RatingHistogram from '@/components/RatingHistogram';
 import type { GameWithTeams, GameLogWithGame, BoxScore } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
+import { usePlayByPlay, type PlayByPlayAction } from '@/hooks/usePlayByPlay';
 
 interface GameDetail {
   game: GameWithTeams;
@@ -497,11 +498,168 @@ function getHighlightsUrl(game: GameWithTeams): string {
   return `https://www.youtube.com/results?search_query=${query}`;
 }
 
-type GameTab = 'box_score' | 'reviews' | 'stats' | 'details';
+function PlayByPlaySection({
+  game,
+}: {
+  game: GameWithTeams;
+}) {
+  const gameDate = game.game_date_utc?.slice(0, 10);
+  const { data, isLoading, error } = usePlayByPlay(
+    game.home_team.abbreviation,
+    gameDate,
+    game.status,
+  );
+
+  const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
+
+  const actions = data?.actions ?? [];
+
+  // Determine available periods
+  const periods = useMemo(() => {
+    const set = new Set(actions.map((a) => a.period));
+    return Array.from(set).sort((a, b) => a - b);
+  }, [actions]);
+
+  // Default to latest period for live games (on first load)
+  const activePeriod = selectedPeriod;
+
+  const filteredActions = useMemo(() => {
+    if (activePeriod == null) return actions;
+    return actions.filter((a) => a.period === activePeriod);
+  }, [actions, activePeriod]);
+
+  // Reverse so most recent plays show first
+  const displayActions = useMemo(
+    () => [...filteredActions].reverse(),
+    [filteredActions],
+  );
+
+  if (game.status === 'scheduled') {
+    return (
+      <View className="items-center py-8 mx-4">
+        <Text className="text-muted text-sm">
+          Plays will appear when the game starts
+        </Text>
+      </View>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View className="items-center py-8">
+        <ActivityIndicator color="#c9a84c" size="small" />
+      </View>
+    );
+  }
+
+  if (error || actions.length === 0) {
+    return (
+      <View className="items-center py-8 mx-4">
+        <Text className="text-muted text-sm">
+          Play-by-play not available
+        </Text>
+      </View>
+    );
+  }
+
+  const periodLabel = (p: number) => (p <= 4 ? `Q${p}` : `OT${p - 4}`);
+
+  const isScoringPlay = (a: PlayByPlayAction) =>
+    a.isFieldGoal && a.shotResult === 'Made';
+
+  return (
+    <View className="mx-4 mt-4">
+      {/* Period filter pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="mb-3"
+      >
+        <View className="flex-row gap-2">
+          <TouchableOpacity
+            className="py-1.5 px-3 rounded-lg"
+            style={
+              activePeriod == null ? { backgroundColor: '#c9a84c' } : undefined
+            }
+            onPress={() => setSelectedPeriod(null)}
+            activeOpacity={0.7}
+          >
+            <Text
+              className={`text-xs font-semibold ${
+                activePeriod == null ? 'text-background' : 'text-muted'
+              }`}
+            >
+              All
+            </Text>
+          </TouchableOpacity>
+          {periods.map((p) => (
+            <TouchableOpacity
+              key={p}
+              className="py-1.5 px-3 rounded-lg"
+              style={
+                activePeriod === p
+                  ? { backgroundColor: '#c9a84c' }
+                  : undefined
+              }
+              onPress={() => setSelectedPeriod(p)}
+              activeOpacity={0.7}
+            >
+              <Text
+                className={`text-xs font-semibold ${
+                  activePeriod === p ? 'text-background' : 'text-muted'
+                }`}
+              >
+                {periodLabel(p)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* Play rows */}
+      {displayActions.map((action) => (
+        <View
+          key={action.actionNumber}
+          className={`flex-row py-2.5 border-b border-border ${
+            isScoringPlay(action) ? 'bg-surface rounded-lg px-2 -mx-2' : ''
+          }`}
+        >
+          {/* Left: team + clock */}
+          <View className="w-20 flex-row items-start gap-1.5">
+            {action.teamTricode ? (
+              <View className="bg-surface rounded px-1.5 py-0.5">
+                <Text className="text-accent text-xs font-bold">
+                  {action.teamTricode}
+                </Text>
+              </View>
+            ) : (
+              <View className="w-9" />
+            )}
+            <Text className="text-muted text-xs mt-0.5">{action.clock}</Text>
+          </View>
+
+          {/* Right: description + score */}
+          <View className="flex-1 ml-2">
+            <Text className="text-white text-sm">{action.description}</Text>
+            {isScoringPlay(action) && (
+              <Text className="text-muted text-xs mt-0.5">
+                {game.away_team.abbreviation} {action.scoreAway} -{' '}
+                {action.scoreHome} {game.home_team.abbreviation}
+              </Text>
+            )}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+type GameTab = 'box_score' | 'reviews' | 'stats' | 'plays' | 'details';
 const TABS: { key: GameTab; label: string }[] = [
   { key: 'box_score', label: 'Box Score' },
   { key: 'reviews', label: 'Reviews' },
   { key: 'stats', label: 'Stats' },
+  { key: 'plays', label: 'Plays' },
   { key: 'details', label: 'Details' },
 ];
 
@@ -790,6 +948,10 @@ export default function GameDetailScreen() {
               <QuarterScoreTable game={game} />
               <TeamComparisonStats boxScores={boxScores} game={game} />
             </>
+          )}
+
+          {activeTab === 'plays' && (
+            <PlayByPlaySection game={game} />
           )}
 
           {activeTab === 'details' && (
