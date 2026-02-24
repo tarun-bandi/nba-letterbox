@@ -21,6 +21,7 @@ import Avatar from '@/components/Avatar';
 import ErrorState from '@/components/ErrorState';
 import GameCard from '@/components/GameCard';
 import FollowListModal from '@/components/FollowListModal';
+import { UserProfileSkeleton } from '@/components/Skeleton';
 import { userUrl } from '@/lib/urls';
 import type { GameLogWithGame, UserProfile } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
@@ -159,11 +160,7 @@ export default function UserProfileScreen() {
   });
 
   if (isLoading) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator color="#c9a84c" size="large" />
-      </View>
-    );
+    return <UserProfileSkeleton />;
   }
 
   if (error || !data) {

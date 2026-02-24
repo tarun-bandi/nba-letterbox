@@ -25,6 +25,7 @@ import AddToListModal from '@/components/AddToListModal';
 import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
 import RatingHistogram from '@/components/RatingHistogram';
+import { GameDetailSkeleton } from '@/components/Skeleton';
 import { gameUrl } from '@/lib/urls';
 import type { GameWithTeams, GameLogWithGame, BoxScore } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
@@ -803,11 +804,7 @@ export default function GameDetailScreen() {
   }, [data?.logs, reviewSort]);
 
   if (isLoading) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator color="#c9a84c" size="large" />
-      </View>
-    );
+    return <GameDetailSkeleton />;
   }
 
   if (error || !data) {
