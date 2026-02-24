@@ -57,7 +57,7 @@ async function fetchFeedPage(
   if (userIds.length === 0) return { logs: [], nextOffset: null, favoriteTeamIds };
 
   // 2. Fetch logs with game + team details, filtered by enabled sports
-  let query = supabase
+  const { data, error } = await supabase
     .from('game_logs')
     .select(`
       *,
@@ -72,8 +72,6 @@ async function fetchFeedPage(
     .in('game.sport', enabledSports)
     .order('logged_at', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
-
-  const { data, error } = await query;
 
   if (error) throw error;
 

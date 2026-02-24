@@ -70,47 +70,49 @@ interface EspnTeam {
 
 async function seedTeams() {
   console.log('Fetching NFL teams from ESPN...');
-  const res = await fetch(`${ESPN_NFL_BASE}/teams?limit=40`, {
-    headers: { 'User-Agent': 'nba-letterbox/1.0' },
-  });
-
-  if (!res.ok) throw new Error(`ESPN teams API error: ${res.status}`);
-  const json = await res.json();
-
-  const rows: any[] = [];
-  for (const group of json.sports?.[0]?.leagues?.[0]?.teams ?? []) {
-    const t: EspnTeam = group.team;
-    // Determine conference from groups
-    let conference: string | null = null;
-    let division: string | null = null;
-
-    // Fetch team detail to get group info
-    const detailRes = await fetch(`${ESPN_NFL_BASE}/teams/${t.id}`, {
+  const [teamsRes, groupsRes] = await Promise.all([
+    fetch(`${ESPN_NFL_BASE}/teams?limit=40`, {
       headers: { 'User-Agent': 'nba-letterbox/1.0' },
-    });
-    if (detailRes.ok) {
-      const detail = await detailRes.json();
-      const groups = detail.team?.groups;
-      if (groups) {
-        conference = groups.parent?.abbreviation ?? null;
-        division = groups.name ?? null;
+    }),
+    fetch(`${ESPN_NFL_BASE}/groups`, {
+      headers: { 'User-Agent': 'nba-letterbox/1.0' },
+    }),
+  ]);
+
+  if (!teamsRes.ok) throw new Error(`ESPN teams API error: ${teamsRes.status}`);
+  const teamsJson = await teamsRes.json();
+
+  // Build conference/division lookup from groups endpoint
+  const teamConfMap = new Map<string, { conference: string; division: string }>();
+  if (groupsRes.ok) {
+    const groupsJson = await groupsRes.json();
+    for (const conf of groupsJson.groups ?? []) {
+      const confAbbr = conf.abbreviation as string; // AFC or NFC
+      for (const div of conf.children ?? []) {
+        const divName = div.name as string; // e.g. "AFC East"
+        for (const teamId of div.teams ?? []) {
+          teamConfMap.set(String(teamId), { conference: confAbbr, division: divName });
+        }
       }
     }
+  }
+
+  const rows: any[] = [];
+  for (const group of teamsJson.sports?.[0]?.leagues?.[0]?.teams ?? []) {
+    const t: EspnTeam = group.team;
+    const confInfo = teamConfMap.get(t.id);
 
     rows.push({
       provider: 'espn' as const,
       provider_team_id: parseInt(t.id, 10),
       abbreviation: t.abbreviation,
       city: t.location,
-      conference,
-      division,
+      conference: confInfo?.conference ?? null,
+      division: confInfo?.division ?? null,
       full_name: t.displayName,
       name: t.shortDisplayName,
       sport: 'nfl' as const,
     });
-
-    // Be nice to ESPN
-    await sleep(200);
   }
 
   const { data, error } = await supabase
