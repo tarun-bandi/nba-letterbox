@@ -16,7 +16,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tarunbandi.nbaletterbox",
-      "associatedDomains": ["applinks:nba-letterbox.vercel.app"]
+      "associatedDomains": ["applinks:nba-letterbox.vercel.app"],
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -73,7 +74,8 @@
         {
           "contactsPermission": "Allow NBA Letterbox to access your contacts to find friends on the app."
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

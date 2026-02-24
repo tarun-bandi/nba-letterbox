@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
 import { Link } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { signInWithGoogle } from '@/lib/googleAuth';
+import { signInWithApple } from '@/lib/appleAuth';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { PageContainer } from '@/components/PageContainer';
 
 export default function SignupScreen() {
@@ -21,6 +23,14 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      AppleAuthentication.isAvailableAsync().then(setIsAppleAvailable);
+    }
+  }, []);
 
   async function handleSignup() {
     if (!displayName.trim() || !email || !password) {
@@ -57,6 +67,18 @@ export default function SignupScreen() {
       Alert.alert('Google Sign In Failed', error.message);
     } finally {
       setGoogleLoading(false);
+    }
+  }
+
+  async function handleAppleSignIn() {
+    setAppleLoading(true);
+    try {
+      await signInWithApple();
+    } catch (error: any) {
+      if (error.code === 'ERR_REQUEST_CANCELED') return;
+      Alert.alert('Apple Sign In Failed', error.message);
+    } finally {
+      setAppleLoading(false);
     }
   }
 
@@ -115,7 +137,7 @@ export default function SignupScreen() {
             <TouchableOpacity
               className="bg-accent rounded-xl py-4 items-center mt-2"
               onPress={handleSignup}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || appleLoading}
             >
               {loading ? (
                 <ActivityIndicator color="#0a0a0a" />
@@ -137,7 +159,7 @@ export default function SignupScreen() {
             <TouchableOpacity
               className="bg-surface border border-border rounded-xl py-4 items-center mt-4"
               onPress={handleGoogleSignIn}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || appleLoading}
             >
               {googleLoading ? (
                 <ActivityIndicator color="#ffffff" />
@@ -147,6 +169,23 @@ export default function SignupScreen() {
                 </Text>
               )}
             </TouchableOpacity>
+
+            {/* Apple Sign In — iOS only */}
+            {isAppleAvailable && (
+              <TouchableOpacity
+                className="bg-white rounded-xl py-4 items-center mt-3"
+                onPress={handleAppleSignIn}
+                disabled={loading || googleLoading || appleLoading}
+              >
+                {appleLoading ? (
+                  <ActivityIndicator color="#0a0a0a" />
+                ) : (
+                  <Text className="text-background font-semibold text-base">
+                     Continue with Apple
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Login link */}
