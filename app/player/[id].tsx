@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Heart } from 'lucide-react-native';
@@ -8,7 +8,6 @@ import { useAuthStore } from '@/lib/store/authStore';
 import TeamLogo from '@/components/TeamLogo';
 import PlayerAvatar from '@/components/PlayerAvatar';
 import ErrorState from '@/components/ErrorState';
-import { Skeleton } from '@/components/Skeleton';
 import type { Player, Team, BoxScore, GameWithTeams } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
 
@@ -185,10 +184,8 @@ export default function PlayerDetailScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-background p-4">
-        <Skeleton width="60%" height={28} borderRadius={8} />
-        <Skeleton width="40%" height={16} borderRadius={8} className="mt-2" />
-        <Skeleton width="100%" height={120} borderRadius={12} className="mt-4" />
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator color="#c9a84c" size="large" />
       </View>
     );
   }
