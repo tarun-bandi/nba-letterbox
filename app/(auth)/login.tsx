@@ -86,7 +86,7 @@ export default function LoginScreen() {
           />
 
           <TouchableOpacity
-            className="bg-accent rounded-xl py-4 items-center mt-2"
+            className="bg-accent rounded-xl py-4 items-center mt-2 max-w-md self-center w-full"
             onPress={handleLogin}
             disabled={loading || googleLoading}
           >
@@ -108,7 +108,7 @@ export default function LoginScreen() {
 
           {/* Google Sign In */}
           <TouchableOpacity
-            className="bg-surface border border-border rounded-xl py-4 items-center mt-4"
+            className="bg-surface border border-border rounded-xl py-4 items-center mt-4 max-w-md self-center w-full"
             onPress={handleGoogleSignIn}
             disabled={loading || googleLoading}
           >

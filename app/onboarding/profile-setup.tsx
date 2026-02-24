@@ -191,7 +191,7 @@ export default function OnboardingProfileSetup() {
 
         <View className="px-8 pb-4 pt-2">
           <TouchableOpacity
-            className="bg-accent rounded-xl py-4 items-center mb-3"
+            className="bg-accent rounded-xl py-4 items-center mb-3 max-w-md self-center w-full"
             onPress={handleDone}
             disabled={saving}
             activeOpacity={0.8}
