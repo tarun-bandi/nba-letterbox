@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Settings, BarChart3, Share2 } from 'lucide-react-native';
+import { Pencil, Settings, BarChart3, Share2, Trophy } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
@@ -264,15 +264,25 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* View Stats */}
-        <TouchableOpacity
-          className="mt-4 bg-accent/10 border border-accent/30 rounded-xl py-3 flex-row items-center justify-center gap-2"
-          onPress={() => router.push('/stats')}
-          activeOpacity={0.7}
-        >
-          <BarChart3 size={16} color="#c9a84c" />
-          <Text className="text-accent font-semibold text-sm">View Stats</Text>
-        </TouchableOpacity>
+        {/* View Stats + My Rankings */}
+        <View className="flex-row gap-2 mt-4">
+          <TouchableOpacity
+            className="flex-1 bg-accent/10 border border-accent/30 rounded-xl py-3 flex-row items-center justify-center gap-2"
+            onPress={() => router.push('/stats')}
+            activeOpacity={0.7}
+          >
+            <BarChart3 size={16} color="#c9a84c" />
+            <Text className="text-accent font-semibold text-sm">Stats</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="flex-1 bg-accent/10 border border-accent/30 rounded-xl py-3 flex-row items-center justify-center gap-2"
+            onPress={() => router.push('/rankings' as any)}
+            activeOpacity={0.7}
+          >
+            <Trophy size={16} color="#c9a84c" />
+            <Text className="text-accent font-semibold text-sm">Rankings</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Diary */}

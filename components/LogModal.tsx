@@ -16,15 +16,21 @@ import { X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useToastStore } from '@/lib/store/toastStore';
+import { removeGameRanking } from '@/lib/rankingService';
 import * as Haptics from 'expo-haptics';
 import StarRating from './StarRating';
 import type { GameLog, WatchMode, LogTag } from '@/types/database';
+
+export interface LogModalResult {
+  showRankingFlow?: boolean;
+  gameId?: string;
+}
 
 interface LogModalProps {
   gameId: string;
   existingLog: (GameLog & { tags?: LogTag[] }) | null;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (result?: LogModalResult) => void;
 }
 
 const WATCH_MODES: { value: WatchMode; label: string }[] = [
@@ -82,12 +88,18 @@ export default function LogModal({
   }
 
   async function performDelete() {
-    if (!existingLog) return;
+    if (!existingLog || !user) return;
     setDeleting(true);
     const { error } = await supabase
       .from('game_logs')
       .delete()
       .eq('id', existingLog.id);
+    if (!error) {
+      // Also remove ranking if it exists
+      try {
+        await removeGameRanking(user.id, gameId);
+      } catch {}
+    }
     setDeleting(false);
     if (error) {
       toast.show(error.message, 'error');
@@ -158,7 +170,11 @@ export default function LogModal({
 
     setSaving(false);
     toast.show(existingLog ? 'Log updated' : 'Game logged!');
-    onSuccess();
+    onSuccess(
+      !existingLog
+        ? { showRankingFlow: true, gameId }
+        : undefined
+    );
   }
 
   return (

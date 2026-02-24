@@ -569,6 +569,26 @@ export interface Database {
           updated_at?: string;
         };
       };
+      game_rankings: {
+        Row: {
+          user_id: string;
+          game_id: string;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          game_id: string;
+          position: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          position?: number;
+          updated_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -596,6 +616,7 @@ export type ListItem = Database['public']['Tables']['list_items']['Row'];
 export type BoxScore = Database['public']['Tables']['box_scores']['Row'];
 export type Watchlist = Database['public']['Tables']['watchlist']['Row'];
 export type FavoritePlayer = Database['public']['Tables']['user_favorite_players']['Row'];
+export type GameRanking = Database['public']['Tables']['game_rankings']['Row'];
 
 // Joined types used in UI
 export type GameWithTeams = Game & {
@@ -616,4 +637,6 @@ export type GameLogWithGame = GameLog & {
   my_reaction?: ReactionType | null;
   tags?: LogTag[];
   comment_count?: number;
+  rank_position?: number;
+  rank_total?: number;
 };
