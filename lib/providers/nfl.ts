@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import type { SportProvider, ProviderGame, BoxScoreColumnDef, TeamComparisonStatDef } from './types';
+import type { SportProvider, ProviderGame, BoxScoreColumnDef, BoxScoreCategory, TeamComparisonStatDef } from './types';
 
 const ESPN_NFL_BASE = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
 
@@ -29,6 +29,89 @@ const BOX_SCORE_COLUMNS: BoxScoreColumnDef[] = [
   { key: 'total_tackles', label: 'TCKL', width: 48, format: 'number' },
   { key: 'def_sacks', label: 'SACK', width: 48, format: 'number' },
   { key: 'def_ints', label: 'D.INT', width: 48, format: 'number' },
+];
+
+const BOX_SCORE_CATEGORIES: BoxScoreCategory[] = [
+  {
+    key: 'passing',
+    label: 'Passing',
+    filterKey: 'passing_attempts',
+    sortKey: 'passing_yards',
+    columns: [
+      { key: 'passing_completions', label: 'CMP', width: 44, format: 'number' },
+      { key: 'passing_attempts', label: 'ATT', width: 44, format: 'number' },
+      { key: 'passing_yards', label: 'YDS', width: 50, format: 'number' },
+      { key: 'passing_tds', label: 'TD', width: 38, format: 'number' },
+      { key: 'passing_ints', label: 'INT', width: 38, format: 'number' },
+      { key: 'sacks_taken', label: 'SCK', width: 40, format: 'number' },
+      { key: 'passer_rating', label: 'RTG', width: 48, format: 'number' },
+    ],
+  },
+  {
+    key: 'rushing',
+    label: 'Rushing',
+    filterKey: 'rushing_carries',
+    sortKey: 'rushing_yards',
+    columns: [
+      { key: 'rushing_carries', label: 'CAR', width: 44, format: 'number' },
+      { key: 'rushing_yards', label: 'YDS', width: 50, format: 'number' },
+      { key: 'rushing_tds', label: 'TD', width: 38, format: 'number' },
+      { key: 'rushing_long', label: 'LONG', width: 48, format: 'number' },
+    ],
+  },
+  {
+    key: 'receiving',
+    label: 'Receiving',
+    filterKey: 'receptions',
+    sortKey: 'receiving_yards',
+    columns: [
+      { key: 'receptions', label: 'REC', width: 44, format: 'number' },
+      { key: 'receiving_yards', label: 'YDS', width: 50, format: 'number' },
+      { key: 'receiving_tds', label: 'TD', width: 38, format: 'number' },
+      { key: 'targets', label: 'TGTS', width: 48, format: 'number' },
+      { key: 'receiving_long', label: 'LONG', width: 48, format: 'number' },
+    ],
+  },
+  {
+    key: 'defensive',
+    label: 'Tackles / Pass Rush',
+    filterKey: 'total_tackles',
+    sortKey: 'total_tackles',
+    columns: [
+      { key: 'total_tackles', label: 'TOT', width: 44, format: 'number' },
+      { key: 'solo_tackles', label: 'SOLO', width: 48, format: 'number' },
+      { key: 'def_sacks', label: 'SACK', width: 48, format: 'number' },
+      { key: 'tackles_for_loss', label: 'TFL', width: 40, format: 'number' },
+      { key: 'qb_hits', label: 'QBH', width: 42, format: 'number' },
+    ],
+  },
+  {
+    key: 'turnovers',
+    label: 'Interceptions / Fumbles',
+    filterKey: 'def_ints',
+    sortKey: 'def_ints',
+    columns: [
+      { key: 'def_ints', label: 'INT', width: 38, format: 'number' },
+      { key: 'int_yards', label: 'YDS', width: 44, format: 'number' },
+      { key: 'int_tds', label: 'TD', width: 38, format: 'number' },
+      { key: 'passes_defended', label: 'PD', width: 38, format: 'number' },
+      { key: 'fumbles', label: 'FUM', width: 44, format: 'number' },
+      { key: 'fumbles_lost', label: 'LOST', width: 44, format: 'number' },
+    ],
+  },
+  {
+    key: 'kicking',
+    label: 'Kicking',
+    filterKey: 'kicking_points',
+    sortKey: 'kicking_points',
+    columns: [
+      { key: 'fg_made', label: 'FGM', width: 44, format: 'number' },
+      { key: 'fg_attempted', label: 'FGA', width: 44, format: 'number' },
+      { key: 'xp_made', label: 'XPM', width: 44, format: 'number' },
+      { key: 'xp_attempted', label: 'XPA', width: 44, format: 'number' },
+      { key: 'kicking_points', label: 'PTS', width: 44, format: 'number' },
+    ],
+  },
 ];
 
 const TEAM_COMPARISON_STATS: TeamComparisonStatDef[] = [
@@ -149,6 +232,10 @@ export const nflProvider: SportProvider = {
 
   getBoxScoreColumns(): BoxScoreColumnDef[] {
     return BOX_SCORE_COLUMNS;
+  },
+
+  getBoxScoreCategories(): BoxScoreCategory[] {
+    return BOX_SCORE_CATEGORIES;
   },
 
   getTeamComparisonStats(): TeamComparisonStatDef[] {
