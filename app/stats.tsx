@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
@@ -6,7 +6,6 @@ import TeamLogo from '@/components/TeamLogo';
 import type { Sport } from '@/types/database';
 import StatBar from '@/components/StatBar';
 import ErrorState from '@/components/ErrorState';
-import { Skeleton } from '@/components/Skeleton';
 import type { WatchMode } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
 
@@ -225,13 +224,8 @@ export default function StatsScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-background p-4">
-        <View className="flex-row gap-3 mb-4">
-          <Skeleton width="50%" height={80} borderRadius={12} />
-          <Skeleton width="50%" height={80} borderRadius={12} />
-        </View>
-        <Skeleton width="100%" height={200} borderRadius={12} className="mb-4" />
-        <Skeleton width="100%" height={200} borderRadius={12} />
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator color="#c9a84c" size="large" />
       </View>
     );
   }
