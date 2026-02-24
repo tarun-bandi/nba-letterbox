@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/((?!api|_expo|assets|favicon\\.ico).*)", "destination": "/index.html" }
+    { "source": "/((?!api|_expo|assets|favicon\\.ico|\\.well-known).*)", "destination": "/index.html" }
   ],
   "crons": [
     {

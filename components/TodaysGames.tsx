@@ -20,7 +20,7 @@ function getTodayDateStr(): string {
 
 async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
   const today = getTodayDateStr();
-  // Games span UTC midnight — use wide window
+  // Games span UTC midnight — use wide window (covers NFL early games + late NBA tips)
   const [y, m, d] = today.split('-').map(Number);
   const startUTC = new Date(Date.UTC(y, m - 1, d, 10, 0, 0)).toISOString();
   const endUTC = new Date(Date.UTC(y, m - 1, d + 1, 12, 0, 0)).toISOString();
@@ -185,6 +185,13 @@ export default function TodaysGames() {
                   </Text>
                 )}
               </View>
+
+              {/* Prediction badge */}
+              {!hasScores && predictedGameIds.has(game.id) && (
+                <View className="absolute top-1.5 right-1.5 bg-accent/20 rounded-full px-1.5 py-0.5">
+                  <Text className="text-accent text-[9px] font-bold">Predicted</Text>
+                </View>
+              )}
 
               {/* Away team */}
               <View className="flex-row items-center justify-between mb-1.5">

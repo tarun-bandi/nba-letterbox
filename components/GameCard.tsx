@@ -21,7 +21,9 @@ import CommentsSheet from './CommentsSheet';
 import StarRating from './StarRating';
 import TeamLogo from './TeamLogo';
 import PlayoffBadge from './PlayoffBadge';
-import type { GameLogWithGame } from '@/types/database';
+import ReactionPicker, { REACTION_EMOJI, REACTION_CONFIG } from './ReactionPicker';
+import { gameUrl } from '@/lib/urls';
+import type { GameLogWithGame, ReactionType } from '@/types/database';
 
 interface GameCardProps {
   log: GameLogWithGame;
@@ -44,34 +46,45 @@ function formatDate(dateStr: string) {
   });
 }
 
+/** Get top 2 reactions sorted by count (excluding 'like') */
+function getTopReactions(reactions?: Record<ReactionType, number>): { type: ReactionType; count: number }[] {
+  if (!reactions) return [];
+  return Object.entries(reactions)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([type, count]) => ({ type: type as ReactionType, count }));
+}
+
 function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardProps) {
   const router = useRouter();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [spoilerRevealed, setSpoilerRevealed] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [commentCount, setCommentCount] = useState(log.comment_count ?? 0);
   const game = log.game;
   const ratingDisplay = log.rating !== null ? log.rating / 10 : null;
 
-  // Heart animation
-  const heartScale = useSharedValue(0);
-  const heartOpacity = useSharedValue(0);
-  const likeButtonScale = useSharedValue(1);
+  // Fire overlay animation (for double-tap)
+  const fireScale = useSharedValue(0);
+  const fireOpacity = useSharedValue(0);
+  const reactionButtonScale = useSharedValue(1);
 
-  const heartAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heartScale.value }],
-    opacity: heartOpacity.value,
+  const fireAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: fireScale.value }],
+    opacity: fireOpacity.value,
   }));
 
-  const likeButtonAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: likeButtonScale.value }],
+  const reactionButtonAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: reactionButtonScale.value }],
   }));
 
-  const likeMutation = useMutation({
-    mutationFn: async () => {
+  const reactionMutation = useMutation({
+    mutationFn: async ({ reactionType, isRemoval }: { reactionType: ReactionType; isRemoval: boolean }) => {
       if (!user) return;
-      if (log.liked_by_me) {
+      if (isRemoval) {
         const { error } = await supabase
           .from('likes')
           .delete()
@@ -79,22 +92,51 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
           .eq('log_id', log.id);
         if (error) throw error;
       } else {
+        // Upsert: insert or update reaction_type
         const { error } = await supabase
           .from('likes')
-          .insert({ user_id: user.id, log_id: log.id });
+          .upsert(
+            { user_id: user.id, log_id: log.id, reaction_type: reactionType },
+            { onConflict: 'user_id,log_id' },
+          );
         if (error) throw error;
       }
     },
-    onMutate: async () => {
+    onMutate: async ({ reactionType, isRemoval }) => {
       const updater = (old: any) => {
         if (!old) return old;
         const updateLog = (l: GameLogWithGame) => {
           if (l.id !== log.id) return l;
-          return {
-            ...l,
-            liked_by_me: !l.liked_by_me,
-            like_count: (l.like_count ?? 0) + (l.liked_by_me ? -1 : 1),
-          };
+          const prevReaction = l.my_reaction;
+          const prevReactions = { ...(l.reactions ?? {}) } as Record<ReactionType, number>;
+
+          if (isRemoval) {
+            // Remove current reaction
+            if (prevReaction && prevReactions[prevReaction]) {
+              prevReactions[prevReaction] = Math.max(0, prevReactions[prevReaction] - 1);
+            }
+            return {
+              ...l,
+              liked_by_me: false,
+              my_reaction: null,
+              reactions: prevReactions,
+              like_count: Math.max(0, (l.like_count ?? 0) - 1),
+            };
+          } else {
+            // Decrement old reaction if changing
+            if (prevReaction && prevReactions[prevReaction]) {
+              prevReactions[prevReaction] = Math.max(0, prevReactions[prevReaction] - 1);
+            }
+            // Increment new reaction
+            prevReactions[reactionType] = (prevReactions[reactionType] ?? 0) + 1;
+            return {
+              ...l,
+              liked_by_me: true,
+              my_reaction: reactionType,
+              reactions: prevReactions,
+              like_count: prevReaction ? (l.like_count ?? 0) : (l.like_count ?? 0) + 1,
+            };
+          }
         };
         if (Array.isArray(old)) return old.map(updateLog);
         if (old.logs) return { ...old, logs: old.logs.map(updateLog) };
@@ -114,19 +156,50 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
 
   if (!game) return null;
 
-  const triggerLike = useCallback(() => {
-    if (!log.liked_by_me) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      likeMutation.mutate();
-    }
-  }, [log.liked_by_me]);
+  const handleReaction = useCallback((reactionType: ReactionType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    reactionButtonScale.value = withSequence(
+      withSpring(1.3, { damping: 4, stiffness: 300 }),
+      withSpring(1, { damping: 8, stiffness: 200 }),
+    );
+    const isRemoval = log.my_reaction === reactionType;
+    reactionMutation.mutate({ reactionType, isRemoval });
+    setShowReactionPicker(false);
+  }, [log.my_reaction]);
 
-  const showHeartOverlay = useCallback(() => {
-    heartScale.value = withSequence(
+  const handleReactionButtonPress = useCallback(() => {
+    if (log.my_reaction) {
+      // Tap removes current reaction
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      reactionButtonScale.value = withSequence(
+        withSpring(1.3, { damping: 4, stiffness: 300 }),
+        withSpring(1, { damping: 8, stiffness: 200 }),
+      );
+      reactionMutation.mutate({ reactionType: log.my_reaction, isRemoval: true });
+    } else {
+      // No reaction yet — show picker
+      setShowReactionPicker(true);
+    }
+  }, [log.my_reaction]);
+
+  const handleReactionButtonLongPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowReactionPicker(true);
+  }, []);
+
+  const triggerFireReaction = useCallback(() => {
+    if (!log.my_reaction) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      reactionMutation.mutate({ reactionType: 'fire', isRemoval: false });
+    }
+  }, [log.my_reaction]);
+
+  const showFireOverlay = useCallback(() => {
+    fireScale.value = withSequence(
       withSpring(1.2, { damping: 6, stiffness: 200 }),
       withDelay(300, withTiming(0, { duration: 200 })),
     );
-    heartOpacity.value = withSequence(
+    fireOpacity.value = withSequence(
       withTiming(1, { duration: 100 }),
       withDelay(400, withTiming(0, { duration: 200 })),
     );
@@ -135,8 +208,8 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
     .onStart(() => {
-      runOnJS(triggerLike)();
-      runOnJS(showHeartOverlay)();
+      runOnJS(triggerFireReaction)();
+      runOnJS(showFireOverlay)();
     });
 
   const singleTap = Gesture.Tap()
@@ -147,29 +220,25 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
 
   const composed = Gesture.Exclusive(doubleTap, singleTap);
 
-  const handleLike = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    likeButtonScale.value = withSequence(
-      withSpring(1.3, { damping: 4, stiffness: 300 }),
-      withSpring(1, { damping: 8, stiffness: 200 }),
-    );
-    likeMutation.mutate();
-  };
-
   const handleShare = () => {
     if (!game) return;
-    const rating = ratingDisplay !== null ? ` ★${ratingDisplay.toFixed(1)}` : '';
-    const snippet = log.review ? ` — "${log.review.slice(0, 80)}${log.review.length > 80 ? '...' : ''}"` : '';
-    const message = `I rated ${game.away_team.abbreviation} @ ${game.home_team.abbreviation}${rating} on NBA Letterbox${snippet}`;
-    RNShare.share({ message });
+    const rating = ratingDisplay !== null ? ` \u2605${ratingDisplay.toFixed(1)}` : '';
+    const snippet = log.review ? ` \u2014 "${log.review.slice(0, 80)}${log.review.length > 80 ? '...' : ''}"` : '';
+    const url = gameUrl(game.id);
+    const message = `I rated ${game.away_team.abbreviation} @ ${game.home_team.abbreviation}${rating} on NBA Letterbox${snippet}\n${url}`;
+    RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
   };
+
+  const topReactions = getTopReactions(log.reactions);
+  const totalReactionCount = log.like_count ?? 0;
+  const myReaction = log.my_reaction;
 
   const cardContent = (
     <>
-      {/* Heart overlay for double-tap */}
+      {/* Fire overlay for double-tap */}
       <Animated.View
         style={[
-          heartAnimStyle,
+          fireAnimStyle,
           {
             position: 'absolute',
             top: '50%',
@@ -181,7 +250,7 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
         ]}
         pointerEvents="none"
       >
-        <Heart size={80} color="#e63946" fill="#e63946" />
+        <Text style={{ fontSize: 72 }}>{'\uD83D\uDD25'}</Text>
       </Animated.View>
 
         {/* Matchup header strip */}
@@ -195,7 +264,7 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
               <Text className="text-white font-bold text-base">
                 {game.away_team_score}
               </Text>
-              <Text className="text-muted text-sm">—</Text>
+              <Text className="text-muted text-sm">{'\u2014'}</Text>
               <Text className="text-white font-bold text-base">
                 {game.home_team_score}
               </Text>
@@ -288,7 +357,7 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
               activeOpacity={0.7}
             >
               <Text className="text-muted text-xs italic">
-                ⚠ Spoiler — tap to reveal
+                {'\u26A0'} Spoiler {'\u2014'} tap to reveal
               </Text>
             </TouchableOpacity>
           ) : (
@@ -298,7 +367,7 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
           )
         ) : null}
 
-        {/* Actions: share + comments + like */}
+        {/* Actions: share + comments + reactions */}
         <View className="flex-row items-center justify-end gap-4 mt-3 pt-2 border-t border-border">
           <TouchableOpacity
             className="flex-row items-center gap-1.5"
@@ -321,29 +390,46 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
               </Text>
             )}
           </TouchableOpacity>
-          <Animated.View style={likeButtonAnimStyle}>
-            <TouchableOpacity
-              className="flex-row items-center gap-1.5"
-              onPress={handleLike}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              activeOpacity={0.6}
-            >
-              <Heart
-                size={18}
-                color={log.liked_by_me ? '#e63946' : '#6b7280'}
-                fill={log.liked_by_me ? '#e63946' : 'transparent'}
+
+          {/* Reaction button area */}
+          <View style={{ position: 'relative' }}>
+            {showReactionPicker && (
+              <ReactionPicker
+                currentReaction={myReaction ?? null}
+                onSelect={handleReaction}
+                onClose={() => setShowReactionPicker(false)}
               />
-              {(log.like_count ?? 0) > 0 && (
-                <Text
-                  className={`text-xs font-medium ${
-                    log.liked_by_me ? 'text-[#e63946]' : 'text-muted'
-                  }`}
-                >
-                  {log.like_count}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
+            )}
+            <Animated.View style={reactionButtonAnimStyle}>
+              <TouchableOpacity
+                className="flex-row items-center gap-1.5"
+                onPress={handleReactionButtonPress}
+                onLongPress={handleReactionButtonLongPress}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                {myReaction ? (
+                  <Text style={{ fontSize: 18 }}>{REACTION_EMOJI[myReaction]}</Text>
+                ) : (
+                  <Heart size={18} color="#6b7280" fill="transparent" />
+                )}
+                {topReactions.length > 0 ? (
+                  <View className="flex-row items-center gap-1">
+                    {topReactions.map((r) => (
+                      <Text key={r.type} className="text-xs">
+                        {REACTION_EMOJI[r.type]}{' '}
+                        <Text className="text-muted font-medium">{r.count}</Text>
+                      </Text>
+                    ))}
+                  </View>
+                ) : totalReactionCount > 0 ? (
+                  <Text className="text-xs font-medium text-muted">
+                    {totalReactionCount}
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
         </View>
 
       {showComments && (

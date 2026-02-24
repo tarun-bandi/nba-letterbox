@@ -8,6 +8,7 @@ const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 interface BdlGame {
   id: number;
   date: string;
+  datetime: string | null;
   home_team: { id: number };
   visitor_team: { id: number };
   home_team_score: number;
@@ -29,6 +30,8 @@ interface BdlGamesResponse {
 function mapStatus(status: string): 'scheduled' | 'live' | 'final' {
   const s = status.toLowerCase();
   if (s === 'final' || s.startsWith('final/')) return 'final';
+  // BDL uses a datetime string (e.g. "2026-02-25T00:00:00Z") for scheduled games
+  if (s.startsWith('20')) return 'scheduled';
   if (/\bq\d/.test(s) || s.includes('half') || s.includes('ot')) return 'live';
   return 'scheduled';
 }
@@ -148,7 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           away_team_id: awayTeamId,
           home_team_score: g.home_team_score || null,
           away_team_score: g.visitor_team_score || null,
-          game_date_utc: new Date(g.date).toISOString(),
+          game_date_utc: g.datetime ? new Date(g.datetime).toISOString() : new Date(g.date).toISOString(),
           status: mapStatus(g.status),
           period: g.period || null,
           time: g.time || null,

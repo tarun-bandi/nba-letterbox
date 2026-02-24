@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.tarunbandi.nbaletterbox",
+        "paths": ["/game/*", "/user/*", "/list/*", "/tag/*"]
+      }
+    ]
+  }
+}

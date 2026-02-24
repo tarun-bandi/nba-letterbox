@@ -6,10 +6,12 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
+  Share as RNShare,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserPlus, UserMinus } from 'lucide-react-native';
+import { UserPlus, UserMinus, Share2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
@@ -19,6 +21,8 @@ import Avatar from '@/components/Avatar';
 import ErrorState from '@/components/ErrorState';
 import GameCard from '@/components/GameCard';
 import FollowListModal from '@/components/FollowListModal';
+import { UserProfileSkeleton } from '@/components/Skeleton';
+import { userUrl } from '@/lib/urls';
 import type { GameLogWithGame, UserProfile } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
 
@@ -29,6 +33,7 @@ interface PublicProfileData {
   isFollowing: boolean;
   followerCount: number;
   followingCount: number;
+  predictionAccuracy: { correct: number; total: number } | null;
 }
 
 async function fetchPublicProfile(
@@ -84,6 +89,26 @@ async function fetchPublicProfile(
       ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) / 10
       : null;
 
+  // Prediction accuracy
+  let predictionAccuracy: { correct: number; total: number } | null = null;
+  const { data: predictions } = await supabase
+    .from('game_predictions')
+    .select('predicted_winner_team_id, game:games (home_team_id, away_team_id, home_team_score, away_team_score, status)')
+    .eq('user_id', profile.user_id);
+
+  if (predictions && predictions.length > 0) {
+    let correct = 0;
+    let total = 0;
+    for (const p of predictions as any[]) {
+      if (!p.game || p.game.status !== 'final') continue;
+      total++;
+      const homeWon = (p.game.home_team_score ?? 0) > (p.game.away_team_score ?? 0);
+      const winnerId = homeWon ? p.game.home_team_id : p.game.away_team_id;
+      if (p.predicted_winner_team_id === winnerId) correct++;
+    }
+    if (total > 0) predictionAccuracy = { correct, total };
+  }
+
   return {
     profile,
     logs,
@@ -91,6 +116,7 @@ async function fetchPublicProfile(
     isFollowing: followRes.data !== null,
     followerCount: followerRes.count ?? 0,
     followingCount: followingRes.count ?? 0,
+    predictionAccuracy,
   };
 }
 
@@ -134,18 +160,14 @@ export default function UserProfileScreen() {
   });
 
   if (isLoading) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator color="#c9a84c" size="large" />
-      </View>
-    );
+    return <UserProfileSkeleton />;
   }
 
   if (error || !data) {
     return <ErrorState message="User not found" onRetry={refetch} />;
   }
 
-  const { profile, logs, stats, isFollowing, followerCount, followingCount } = data;
+  const { profile, logs, stats, isFollowing, followerCount, followingCount, predictionAccuracy } = data;
   const isOwnProfile = user?.id === profile.user_id;
 
   return (
@@ -184,6 +206,17 @@ export default function UserProfileScreen() {
             </View>
           </View>
 
+          <View className="flex-row items-center gap-2">
+          <TouchableOpacity
+            onPress={() => {
+              const url = userUrl(profile.handle);
+              const message = `Check out @${profile.handle} on NBA Letterbox\n${url}`;
+              RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
+            }}
+            className="p-2"
+          >
+            <Share2 size={20} color="#6b7280" />
+          </TouchableOpacity>
           {!isOwnProfile && (
             <TouchableOpacity
               className={`flex-row items-center gap-1.5 px-4 py-2 rounded-full border ${
@@ -217,6 +250,7 @@ export default function UserProfileScreen() {
               )}
             </TouchableOpacity>
           )}
+          </View>
         </View>
 
         {/* Stats */}
@@ -239,6 +273,14 @@ export default function UserProfileScreen() {
             <Text className="text-accent text-xl font-bold">{followingCount}</Text>
             <Text className="text-muted text-xs mt-0.5">Following</Text>
           </TouchableOpacity>
+          {predictionAccuracy && (
+            <View>
+              <Text className="text-accent text-xl font-bold">
+                {Math.round((predictionAccuracy.correct / predictionAccuracy.total) * 100)}%
+              </Text>
+              <Text className="text-muted text-xs mt-0.5">Predictions</Text>
+            </View>
+          )}
         </View>
       </View>
 

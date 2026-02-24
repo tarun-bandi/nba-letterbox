@@ -1,5 +1,13 @@
-import { useEffect, useRef } from 'react';
-import { View, Animated } from 'react-native';
+import { useEffect } from 'react';
+import { View, ScrollView } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 
 interface SkeletonProps {
   width?: number | string;
@@ -9,26 +17,19 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ width, height = 16, borderRadius = 8, className }: SkeletonProps) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
+  const shimmer = useSharedValue(0);
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.7,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.3,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
+    shimmer.value = withRepeat(
+      withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
     );
-    animation.start();
-    return () => animation.stop();
   }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(shimmer.value, [0, 0.5, 1], [0.25, 0.5, 0.25]),
+  }));
 
   return (
     <Animated.View
@@ -38,35 +39,47 @@ export function Skeleton({ width, height = 16, borderRadius = 8, className }: Sk
           width: width as any,
           height,
           borderRadius,
-          backgroundColor: '#2a2a2a',
-          opacity,
+          backgroundColor: '#333',
         },
+        animStyle,
       ]}
     />
   );
 }
 
+/** Rounded pill skeleton for inline elements like tags */
+function PillSkeleton({ width }: { width: number }) {
+  return <Skeleton width={width} height={28} borderRadius={14} />;
+}
+
 export function GameCardSkeleton() {
   return (
-    <View className="bg-surface border border-border rounded-2xl p-4 mb-3 mx-4">
+    <View className="bg-surface border border-border rounded-2xl p-4 mb-3">
       {/* Matchup row */}
-      <View className="flex-row items-center gap-2">
-        <Skeleton width={28} height={28} borderRadius={14} />
-        <Skeleton width={40} height={18} />
-        <Skeleton width={16} height={18} />
-        <Skeleton width={28} height={28} borderRadius={14} />
-        <Skeleton width={40} height={18} />
+      <View className="flex-row items-center justify-center gap-2">
+        <Skeleton width={24} height={24} borderRadius={12} />
+        <Skeleton width={36} height={14} borderRadius={4} />
+        <Skeleton width={28} height={18} borderRadius={4} />
+        <Skeleton width={8} height={12} borderRadius={2} />
+        <Skeleton width={28} height={18} borderRadius={4} />
+        <Skeleton width={36} height={14} borderRadius={4} />
+        <Skeleton width={24} height={24} borderRadius={12} />
       </View>
-      {/* Date */}
-      <Skeleton width={100} height={12} className="mt-2" />
-      {/* Rating */}
-      <View className="flex-row items-center gap-2 mt-3">
-        <Skeleton width={90} height={16} />
-        <Skeleton width={30} height={16} />
+      {/* Rating row */}
+      <View className="flex-row items-center gap-2 mt-4">
+        <Skeleton width={80} height={14} borderRadius={4} />
+        <Skeleton width={28} height={14} borderRadius={4} />
+        <Skeleton width={64} height={24} borderRadius={12} />
       </View>
-      {/* Review */}
-      <Skeleton width="100%" height={14} className="mt-3" />
-      <Skeleton width="70%" height={14} className="mt-1.5" />
+      {/* Review lines */}
+      <Skeleton width="100%" height={12} borderRadius={4} className="mt-3" />
+      <Skeleton width="65%" height={12} borderRadius={4} className="mt-2" />
+      {/* Action bar */}
+      <View className="flex-row items-center justify-end gap-5 mt-4 pt-3 border-t border-border">
+        <Skeleton width={20} height={20} borderRadius={4} />
+        <Skeleton width={20} height={20} borderRadius={4} />
+        <Skeleton width={20} height={20} borderRadius={4} />
+      </View>
     </View>
   );
 }
@@ -75,22 +88,30 @@ export function ProfileSkeleton() {
   return (
     <View className="flex-1 bg-background">
       <View className="bg-surface border-b border-border px-6 py-6">
-        <Skeleton width={180} height={28} />
-        <Skeleton width={100} height={16} className="mt-2" />
-        <Skeleton width="80%" height={14} className="mt-3" />
-        <View className="flex-row mt-4 gap-6">
-          <View>
-            <Skeleton width={40} height={24} />
-            <Skeleton width={50} height={12} className="mt-1" />
-          </View>
-          <View>
-            <Skeleton width={40} height={24} />
-            <Skeleton width={60} height={12} className="mt-1" />
+        <View className="flex-row items-center gap-3">
+          {/* Avatar */}
+          <Skeleton width={64} height={64} borderRadius={32} />
+          <View className="flex-1">
+            <Skeleton width={140} height={22} borderRadius={6} />
+            <Skeleton width={90} height={14} borderRadius={4} className="mt-2" />
+            <Skeleton width="85%" height={12} borderRadius={4} className="mt-3" />
           </View>
         </View>
+        {/* Stats row */}
+        <View className="flex-row mt-5 gap-6">
+          {[48, 40, 56, 56].map((w, i) => (
+            <View key={i}>
+              <Skeleton width={w} height={22} borderRadius={4} />
+              <Skeleton width={w + 8} height={10} borderRadius={3} className="mt-1.5" />
+            </View>
+          ))}
+        </View>
+        {/* View Stats button */}
+        <Skeleton width="100%" height={44} borderRadius={12} className="mt-4" />
       </View>
-      <View className="px-4 pt-4">
-        <Skeleton width={100} height={18} className="mb-3" />
+      {/* Recent logs */}
+      <View className="px-4 pt-5">
+        <Skeleton width={100} height={16} borderRadius={4} className="mb-3" />
         <GameCardSkeleton />
         <GameCardSkeleton />
       </View>
@@ -100,7 +121,7 @@ export function ProfileSkeleton() {
 
 export function FeedSkeleton() {
   return (
-    <View className="flex-1 bg-background pt-2">
+    <View className="flex-1 bg-background px-4 pt-3">
       <GameCardSkeleton />
       <GameCardSkeleton />
       <GameCardSkeleton />
@@ -108,37 +129,34 @@ export function FeedSkeleton() {
   );
 }
 
-function DiscoverSectionSkeleton() {
+function DiscoverRowSkeleton({ widthA = 80, widthB = 70 }: { widthA?: number; widthB?: number }) {
   return (
-    <View className="px-4 pt-4">
-      <Skeleton width={160} height={22} className="mb-3" />
-      <View className="bg-surface border border-border rounded-xl p-4 mb-2">
+    <View className="bg-surface border border-border rounded-xl p-4 mb-2">
+      <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
+          <Skeleton width={18} height={14} borderRadius={3} />
           <Skeleton width={22} height={22} borderRadius={11} />
-          <Skeleton width={80} height={16} />
-          <Skeleton width={16} height={16} />
+          <Skeleton width={widthA} height={14} borderRadius={4} />
+          <Skeleton width={12} height={12} borderRadius={2} />
           <Skeleton width={22} height={22} borderRadius={11} />
-          <Skeleton width={80} height={16} />
+          <Skeleton width={widthB} height={14} borderRadius={4} />
         </View>
+        <Skeleton width={48} height={12} borderRadius={4} />
       </View>
-      <View className="bg-surface border border-border rounded-xl p-4 mb-2">
-        <View className="flex-row items-center gap-2">
-          <Skeleton width={22} height={22} borderRadius={11} />
-          <Skeleton width={90} height={16} />
-          <Skeleton width={16} height={16} />
-          <Skeleton width={22} height={22} borderRadius={11} />
-          <Skeleton width={70} height={16} />
-        </View>
+      <Skeleton width={70} height={10} borderRadius={3} className="mt-2 ml-7" />
+    </View>
+  );
+}
+
+function DiscoverUserSkeleton() {
+  return (
+    <View className="bg-surface border border-border rounded-xl p-4 mb-2 flex-row items-center gap-3">
+      <Skeleton width={40} height={40} borderRadius={20} />
+      <View className="flex-1">
+        <Skeleton width={100} height={14} borderRadius={4} />
+        <Skeleton width={70} height={10} borderRadius={3} className="mt-1.5" />
       </View>
-      <View className="bg-surface border border-border rounded-xl p-4 mb-2">
-        <View className="flex-row items-center gap-2">
-          <Skeleton width={22} height={22} borderRadius={11} />
-          <Skeleton width={70} height={16} />
-          <Skeleton width={16} height={16} />
-          <Skeleton width={22} height={22} borderRadius={11} />
-          <Skeleton width={80} height={16} />
-        </View>
-      </View>
+      <Skeleton width={64} height={28} borderRadius={14} />
     </View>
   );
 }
@@ -146,16 +164,127 @@ function DiscoverSectionSkeleton() {
 export function DiscoverSkeleton() {
   return (
     <View className="flex-1 bg-background">
-      <DiscoverSectionSkeleton />
-      <DiscoverSectionSkeleton />
+      {/* Find Friends card */}
       <View className="px-4 pt-4">
-        <Skeleton width={140} height={22} className="mb-3" />
+        <Skeleton width="100%" height={60} borderRadius={12} />
+      </View>
+      {/* Most Logged section */}
+      <View className="px-4 pt-5">
+        <Skeleton width={180} height={20} borderRadius={4} className="mb-3" />
+        <DiscoverRowSkeleton widthA={36} widthB={36} />
+        <DiscoverRowSkeleton widthA={40} widthB={32} />
+        <DiscoverRowSkeleton widthA={36} widthB={40} />
+      </View>
+      {/* Active Reviewers section */}
+      <View className="px-4 pt-5">
+        <Skeleton width={140} height={20} borderRadius={4} className="mb-3" />
+        <DiscoverUserSkeleton />
+        <DiscoverUserSkeleton />
+      </View>
+      {/* Trending tags */}
+      <View className="px-4 pt-5">
+        <Skeleton width={130} height={20} borderRadius={4} className="mb-3" />
         <View className="flex-row flex-wrap gap-2">
-          <Skeleton width={100} height={32} borderRadius={16} />
-          <Skeleton width={80} height={32} borderRadius={16} />
-          <Skeleton width={90} height={32} borderRadius={16} />
+          <PillSkeleton width={96} />
+          <PillSkeleton width={72} />
+          <PillSkeleton width={88} />
+          <PillSkeleton width={80} />
         </View>
       </View>
     </View>
+  );
+}
+
+export function GameDetailSkeleton() {
+  return (
+    <ScrollView className="flex-1 bg-background" showsVerticalScrollIndicator={false}>
+      {/* Score card */}
+      <View className="bg-surface border-b border-border mx-4 mt-4 rounded-2xl p-6">
+        <View className="flex-row justify-between items-center">
+          {/* Away */}
+          <View className="flex-1 items-center">
+            <Skeleton width={64} height={64} borderRadius={32} />
+            <Skeleton width={40} height={12} borderRadius={3} className="mt-2" />
+            <Skeleton width={36} height={22} borderRadius={4} className="mt-1" />
+            <Skeleton width={48} height={36} borderRadius={6} className="mt-2" />
+          </View>
+          {/* Center */}
+          <View className="items-center px-4">
+            <Skeleton width={40} height={12} borderRadius={3} />
+            <Skeleton width={20} height={20} borderRadius={4} className="mt-2" />
+            <Skeleton width={100} height={10} borderRadius={3} className="mt-2" />
+          </View>
+          {/* Home */}
+          <View className="flex-1 items-center">
+            <Skeleton width={64} height={64} borderRadius={32} />
+            <Skeleton width={40} height={12} borderRadius={3} className="mt-2" />
+            <Skeleton width={36} height={22} borderRadius={4} className="mt-1" />
+            <Skeleton width={48} height={36} borderRadius={6} className="mt-2" />
+          </View>
+        </View>
+        {/* Community avg */}
+        <View className="mt-4 pt-4 border-t border-border items-center">
+          <Skeleton width={160} height={14} borderRadius={4} />
+        </View>
+      </View>
+
+      {/* Action buttons */}
+      <View className="mx-4 mt-4 flex-row gap-3">
+        <Skeleton width={undefined} height={52} borderRadius={12} className="flex-1" />
+        <Skeleton width={48} height={52} borderRadius={12} />
+        <Skeleton width={48} height={52} borderRadius={12} />
+        <Skeleton width={48} height={52} borderRadius={12} />
+      </View>
+
+      {/* Tab bar */}
+      <View className="mx-4 mt-4">
+        <Skeleton width="100%" height={40} borderRadius={12} />
+      </View>
+
+      {/* Box score placeholder rows */}
+      <View className="mx-4 mt-4">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <View key={i} className="flex-row items-center py-3 border-b border-border gap-3">
+            <Skeleton width={100} height={12} borderRadius={3} />
+            <Skeleton width={32} height={12} borderRadius={3} />
+            <Skeleton width={28} height={12} borderRadius={3} />
+            <Skeleton width={28} height={12} borderRadius={3} />
+            <Skeleton width={28} height={12} borderRadius={3} />
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+export function UserProfileSkeleton() {
+  return (
+    <ScrollView className="flex-1 bg-background" showsVerticalScrollIndicator={false}>
+      <View className="bg-surface border-b border-border px-6 py-6">
+        <View className="flex-row items-center gap-3">
+          <Skeleton width={64} height={64} borderRadius={32} />
+          <View className="flex-1">
+            <Skeleton width={140} height={22} borderRadius={6} />
+            <Skeleton width={90} height={14} borderRadius={4} className="mt-2" />
+            <Skeleton width="80%" height={12} borderRadius={4} className="mt-3" />
+          </View>
+          {/* Follow button */}
+          <Skeleton width={90} height={36} borderRadius={18} />
+        </View>
+        <View className="flex-row mt-5 gap-6">
+          {[40, 40, 52, 56].map((w, i) => (
+            <View key={i}>
+              <Skeleton width={w} height={22} borderRadius={4} />
+              <Skeleton width={w + 8} height={10} borderRadius={3} className="mt-1.5" />
+            </View>
+          ))}
+        </View>
+      </View>
+      <View className="px-4 pt-5">
+        <Skeleton width={60} height={16} borderRadius={4} className="mb-3" />
+        <GameCardSkeleton />
+        <GameCardSkeleton />
+      </View>
+    </ScrollView>
   );
 }

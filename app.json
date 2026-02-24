@@ -15,14 +15,44 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tarunbandi.nbaletterbox"
+      "bundleIdentifier": "com.tarunbandi.nbaletterbox",
+      "associatedDomains": ["applinks:nba-letterbox.vercel.app"]
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a0a"
       },
-      "package": "com.tarunbandi.nbaletterbox"
+      "package": "com.tarunbandi.nbaletterbox",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "nba-letterbox.vercel.app",
+              "pathPrefix": "/game"
+            },
+            {
+              "scheme": "https",
+              "host": "nba-letterbox.vercel.app",
+              "pathPrefix": "/user"
+            },
+            {
+              "scheme": "https",
+              "host": "nba-letterbox.vercel.app",
+              "pathPrefix": "/list"
+            },
+            {
+              "scheme": "https",
+              "host": "nba-letterbox.vercel.app",
+              "pathPrefix": "/tag"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -30,7 +60,20 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#c9a84c"
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow NBA Letterbox to access your contacts to find friends on the app."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
