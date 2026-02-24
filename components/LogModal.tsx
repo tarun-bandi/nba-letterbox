@@ -12,11 +12,13 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { Image } from 'expo-image';
+import { X, ImagePlus, XCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useToastStore } from '@/lib/store/toastStore';
 import { removeGameRanking } from '@/lib/rankingService';
+import { pickLogImages, uploadLogImage, deleteLogImage, MAX_IMAGES } from '@/lib/uploadLogImages';
 import * as Haptics from 'expo-haptics';
 import type { GameLog, WatchMode, LogTag } from '@/types/database';
 
@@ -57,6 +59,12 @@ export default function LogModal({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Images
+  const [imageUrls, setImageUrls] = useState<string[]>(
+    existingLog?.image_urls ?? []
+  );
+  const [uploading, setUploading] = useState(false);
+
   // Tags
   const [availableTags, setAvailableTags] = useState<LogTag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(
@@ -83,6 +91,36 @@ export default function LogModal({
     });
   }
 
+  async function handlePickImages() {
+    if (!user) return;
+    const remaining = MAX_IMAGES - imageUrls.length;
+    if (remaining <= 0) return;
+
+    const assets = await pickLogImages(remaining);
+    if (!assets) return;
+
+    setUploading(true);
+    try {
+      const urls: string[] = [];
+      for (const asset of assets) {
+        const url = await uploadLogImage(user.id, asset.uri, asset.mimeType);
+        urls.push(url);
+      }
+      setImageUrls((prev) => [...prev, ...urls]);
+    } catch (err: any) {
+      toast.show(err.message ?? 'Failed to upload image', 'error');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleRemoveImage(url: string) {
+    try {
+      await deleteLogImage(url);
+    } catch {} // best-effort cleanup
+    setImageUrls((prev) => prev.filter((u) => u !== url));
+  }
+
   async function performDelete() {
     if (!existingLog || !user) return;
     setDeleting(true);
@@ -95,6 +133,10 @@ export default function LogModal({
       try {
         await removeGameRanking(user.id, gameId);
       } catch {}
+      // Clean up images from storage
+      for (const url of imageUrls) {
+        try { await deleteLogImage(url); } catch {}
+      }
     }
     setDeleting(false);
     if (error) {
@@ -138,6 +180,7 @@ export default function LogModal({
           watch_mode: watchMode,
           review: review.trim() || null,
           has_spoilers: hasSpoilers,
+          image_urls: imageUrls.length > 0 ? imageUrls : null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,game_id' }
@@ -281,6 +324,47 @@ export default function LogModal({
                 />
               </View>
 
+              {/* Photos */}
+              <View className="mb-5">
+                <Text className="text-muted text-sm mb-2">Photos (optional)</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8 }}
+                >
+                  {imageUrls.map((url) => (
+                    <View key={url} style={{ position: 'relative' }}>
+                      <Image
+                        source={{ uri: url }}
+                        style={{ width: 80, height: 80, borderRadius: 10 }}
+                        contentFit="cover"
+                      />
+                      <TouchableOpacity
+                        style={{ position: 'absolute', top: -6, right: -6 }}
+                        onPress={() => handleRemoveImage(url)}
+                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      >
+                        <XCircle size={20} color="#e63946" fill="#0a0a0a" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {imageUrls.length < MAX_IMAGES && (
+                    <TouchableOpacity
+                      className="bg-background border border-border rounded-xl items-center justify-center"
+                      style={{ width: 80, height: 80 }}
+                      onPress={handlePickImages}
+                      disabled={uploading}
+                    >
+                      {uploading ? (
+                        <ActivityIndicator color="#c9a84c" size="small" />
+                      ) : (
+                        <ImagePlus size={24} color="#6b7280" />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </ScrollView>
+              </View>
+
               {/* Spoiler toggle */}
               <View className="flex-row justify-between items-center mb-6">
                 <View>
@@ -308,7 +392,7 @@ export default function LogModal({
               <TouchableOpacity
                 className="bg-accent rounded-xl py-4 items-center mb-4"
                 onPress={handleSave}
-                disabled={saving || deleting}
+                disabled={saving || deleting || uploading}
               >
                 {saving ? (
                   <ActivityIndicator color="#0a0a0a" />
