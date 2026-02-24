@@ -19,7 +19,8 @@ import { inviteUrl } from '@/lib/urls';
 import Avatar from '@/components/Avatar';
 import FindFriendsSheet from '@/components/FindFriendsSheet';
 import { PageContainer } from '@/components/PageContainer';
-import type { UserProfile, WatchMode } from '@/types/database';
+import { useQueryClient } from '@tanstack/react-query';
+import type { UserProfile, WatchMode, Sport } from '@/types/database';
 
 const WATCH_MODES: { value: WatchMode | null; label: string }[] = [
   { value: null, label: 'None' },
@@ -44,6 +45,7 @@ export default function SettingsScreen() {
     setNotifyFollows,
   } = usePreferencesStore();
   const [signingOut, setSigningOut] = useState(false);
+  const queryClient = useQueryClient();
   const [showFindFriends, setShowFindFriends] = useState(false);
 
   const { data: profile } = useQuery({
@@ -165,6 +167,47 @@ export default function SettingsScreen() {
               thumbColor="#ffffff"
             />
           </View>
+        </View>
+      </View>
+
+      {/* Sports */}
+      <View className="px-4 pt-6">
+        <Text className="text-muted text-xs font-semibold uppercase tracking-wider mb-3">
+          Sports
+        </Text>
+        <View className="bg-surface border border-border rounded-xl">
+          {(['nba', 'nfl'] as const).map((sport, i) => {
+            const enabled = (profile?.enabled_sports ?? ['nba']).includes(sport);
+            return (
+              <View
+                key={sport}
+                className={`p-4 flex-row items-center justify-between ${i > 0 ? 'border-t border-border' : ''}`}
+              >
+                <Text className="text-white font-medium">{sport.toUpperCase()}</Text>
+                <Switch
+                  value={enabled}
+                  onValueChange={async (val) => {
+                    if (!user || !profile) return;
+                    const current = profile.enabled_sports ?? ['nba'];
+                    const next = val
+                      ? [...new Set([...current, sport])]
+                      : current.filter((s: string) => s !== sport);
+                    // Don't allow disabling all sports
+                    if (next.length === 0) return;
+                    await supabase
+                      .from('user_profiles')
+                      .update({ enabled_sports: next })
+                      .eq('user_id', user.id);
+                    queryClient.invalidateQueries({ queryKey: ['settings-profile'] });
+                    queryClient.invalidateQueries({ queryKey: ['todays-games'] });
+                    queryClient.invalidateQueries({ queryKey: ['feed'] });
+                  }}
+                  trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+            );
+          })}
         </View>
       </View>
 

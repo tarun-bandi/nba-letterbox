@@ -145,7 +145,7 @@ export default function FavoriteTeamsModal({
                         onPress={() => toggleTeam(team.id)}
                         activeOpacity={0.7}
                       >
-                        <TeamLogo abbreviation={team.abbreviation} size={20} />
+                        <TeamLogo abbreviation={team.abbreviation} sport={team.sport ?? 'nba'} size={20} />
                         <Text
                           className={`text-sm font-medium ${
                             isSelected ? 'text-accent' : 'text-muted'

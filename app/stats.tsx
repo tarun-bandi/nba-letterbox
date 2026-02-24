@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import TeamLogo from '@/components/TeamLogo';
+import type { Sport } from '@/types/database';
 import StatBar from '@/components/StatBar';
 import ErrorState from '@/components/ErrorState';
 import { Skeleton } from '@/components/Skeleton';
@@ -16,7 +17,7 @@ interface StatsData {
   favoriteWatchMode: WatchMode | null;
   gamesByMonth: { label: string; value: number }[];
   ratingDistribution: { label: string; value: number }[];
-  mostWatchedTeams: { abbreviation: string; count: number }[];
+  mostWatchedTeams: { abbreviation: string; sport: Sport; count: number }[];
   loggingStreak: number;
   teamsCoverage: number;
   predictionAccuracy: { correct: number; total: number } | null;
@@ -110,19 +111,26 @@ async function fetchStats(userId: string): Promise<StatsData> {
   // Most watched teams
   const teamCounts: Record<string, number> = {};
   const teamAbbr: Record<string, string> = {};
+  const teamSport: Record<string, string> = {};
   for (const log of logs) {
     if (!log.game) continue;
     const homeId = log.game.home_team_id;
     const awayId = log.game.away_team_id;
     teamCounts[homeId] = (teamCounts[homeId] ?? 0) + 1;
     teamCounts[awayId] = (teamCounts[awayId] ?? 0) + 1;
-    if (log.game.home_team) teamAbbr[homeId] = log.game.home_team.abbreviation;
-    if (log.game.away_team) teamAbbr[awayId] = log.game.away_team.abbreviation;
+    if (log.game.home_team) {
+      teamAbbr[homeId] = log.game.home_team.abbreviation;
+      teamSport[homeId] = log.game.home_team.sport ?? 'nba';
+    }
+    if (log.game.away_team) {
+      teamAbbr[awayId] = log.game.away_team.abbreviation;
+      teamSport[awayId] = log.game.away_team.sport ?? 'nba';
+    }
   }
   const mostWatchedTeams = Object.entries(teamCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([id, count]) => ({ abbreviation: teamAbbr[id] ?? '???', count }));
+    .map(([id, count]) => ({ abbreviation: teamAbbr[id] ?? '???', sport: (teamSport[id] ?? 'nba') as Sport, count }));
 
   // Logging streak
   let streak = 0;
@@ -347,7 +355,7 @@ export default function StatsScreen() {
               className="bg-surface border border-border rounded-xl p-4 mb-2 flex-row items-center gap-3"
             >
               <Text className="text-muted font-bold w-5">{idx + 1}</Text>
-              <TeamLogo abbreviation={team.abbreviation} size={28} />
+              <TeamLogo abbreviation={team.abbreviation} sport={team.sport ?? 'nba'} size={28} />
               <Text className="text-white font-semibold flex-1">
                 {team.abbreviation}
               </Text>
