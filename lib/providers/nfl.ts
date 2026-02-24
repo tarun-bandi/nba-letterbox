@@ -12,23 +12,23 @@ const PLAYOFF_ROUND_LABELS: Record<string, string> = {
 
 const BOX_SCORE_COLUMNS: BoxScoreColumnDef[] = [
   // Passing
-  { key: 'passing_cmp', label: 'CMP', width: 44, format: 'number' },
-  { key: 'passing_att', label: 'ATT', width: 44, format: 'number' },
-  { key: 'passing_yds', label: 'P.YDS', width: 52, format: 'number' },
+  { key: 'passing_completions', label: 'CMP', width: 44, format: 'number' },
+  { key: 'passing_attempts', label: 'ATT', width: 44, format: 'number' },
+  { key: 'passing_yards', label: 'P.YDS', width: 52, format: 'number' },
   { key: 'passing_tds', label: 'P.TD', width: 44, format: 'number' },
-  { key: 'passing_int', label: 'INT', width: 40, format: 'number' },
+  { key: 'passing_ints', label: 'INT', width: 40, format: 'number' },
   // Rushing
-  { key: 'rushing_car', label: 'CAR', width: 44, format: 'number' },
-  { key: 'rushing_yds', label: 'R.YDS', width: 52, format: 'number' },
+  { key: 'rushing_carries', label: 'CAR', width: 44, format: 'number' },
+  { key: 'rushing_yards', label: 'R.YDS', width: 52, format: 'number' },
   { key: 'rushing_tds', label: 'R.TD', width: 44, format: 'number' },
   // Receiving
-  { key: 'receiving_rec', label: 'REC', width: 44, format: 'number' },
-  { key: 'receiving_yds', label: 'REC.YDS', width: 60, format: 'number' },
+  { key: 'receptions', label: 'REC', width: 44, format: 'number' },
+  { key: 'receiving_yards', label: 'REC.YDS', width: 60, format: 'number' },
   { key: 'receiving_tds', label: 'REC.TD', width: 52, format: 'number' },
   // Defense
-  { key: 'tackles', label: 'TCKL', width: 48, format: 'number' },
-  { key: 'sacks', label: 'SACK', width: 48, format: 'number' },
-  { key: 'def_int', label: 'D.INT', width: 48, format: 'number' },
+  { key: 'total_tackles', label: 'TCKL', width: 48, format: 'number' },
+  { key: 'def_sacks', label: 'SACK', width: 48, format: 'number' },
+  { key: 'def_ints', label: 'D.INT', width: 48, format: 'number' },
 ];
 
 const TEAM_COMPARISON_STATS: TeamComparisonStatDef[] = [

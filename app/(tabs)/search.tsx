@@ -77,7 +77,7 @@ interface GamesPage {
 async function searchGamesByTeam(
   teamId1: string,
   teamId2: string | null,
-  seasonId: string | null,
+  seasonIds: string[] | null,
   offset: number,
   userId: string | null,
 ): Promise<GamesPage> {
@@ -104,8 +104,8 @@ async function searchGamesByTeam(
       .or(`home_team_id.eq.${teamId1},away_team_id.eq.${teamId1}`);
   }
 
-  if (seasonId) {
-    gamesQuery = gamesQuery.eq('season_id', seasonId);
+  if (seasonIds && seasonIds.length > 0) {
+    gamesQuery = gamesQuery.in('season_id', seasonIds);
   }
 
   const { data, error } = await gamesQuery;
@@ -174,7 +174,7 @@ export default function SearchScreen() {
   const { user } = useAuthStore();
   const [query, setQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('games');
-  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [selectedSeasonYear, setSelectedSeasonYear] = useState<number | null>(null);
   const [selectedTeam1, setSelectedTeam1] = useState<Team | null>(null);
   const [selectedTeam2, setSelectedTeam2] = useState<Team | null>(null);
   const [pickingOpponent, setPickingOpponent] = useState(false);
@@ -191,13 +191,23 @@ export default function SearchScreen() {
     queryFn: fetchSeasons,
   });
 
+  // Deduplicate seasons by year for the filter pills
+  const uniqueSeasonYears = seasons
+    ? [...new Set(seasons.map((s) => s.year))].sort((a, b) => b - a)
+    : [];
+
+  // Get all season IDs matching the selected year
+  const selectedSeasonIds = selectedSeasonYear && seasons
+    ? seasons.filter((s) => s.year === selectedSeasonYear).map((s) => s.id)
+    : null;
+
   const gamesQuery = useInfiniteQuery({
-    queryKey: ['games-search', selectedTeam1?.id, selectedTeam2?.id, selectedSeasonId],
+    queryKey: ['games-search', selectedTeam1?.id, selectedTeam2?.id, selectedSeasonYear],
     queryFn: ({ pageParam = 0 }) =>
       searchGamesByTeam(
         selectedTeam1!.id,
         selectedTeam2?.id ?? null,
-        selectedSeasonId,
+        selectedSeasonIds,
         pageParam,
         user?.id ?? null,
       ),
@@ -335,7 +345,7 @@ export default function SearchScreen() {
           />
 
           {/* Season filter pills */}
-          {seasons && seasons.length > 0 && (
+          {uniqueSeasonYears.length > 0 && (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -344,29 +354,29 @@ export default function SearchScreen() {
               style={{ flexGrow: 0 }}
             >
               <TouchableOpacity
-                onPress={() => setSelectedSeasonId(null)}
+                onPress={() => setSelectedSeasonYear(null)}
                 className="px-3 py-1.5 rounded-full border border-border bg-background"
-                style={selectedSeasonId === null ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
+                style={selectedSeasonYear === null ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
               >
                 <Text
                   className="text-sm font-medium text-muted"
-                  style={selectedSeasonId === null ? { color: '#0a0a0a' } : undefined}
+                  style={selectedSeasonYear === null ? { color: '#0a0a0a' } : undefined}
                 >
                   All
                 </Text>
               </TouchableOpacity>
-              {seasons.map((season) => (
+              {uniqueSeasonYears.map((year) => (
                 <TouchableOpacity
-                  key={season.id}
-                  onPress={() => setSelectedSeasonId(season.id)}
+                  key={year}
+                  onPress={() => setSelectedSeasonYear(year)}
                   className="px-3 py-1.5 rounded-full border border-border bg-background"
-                  style={selectedSeasonId === season.id ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
+                  style={selectedSeasonYear === year ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
                 >
                   <Text
                     className="text-sm font-medium text-muted"
-                    style={selectedSeasonId === season.id ? { color: '#0a0a0a' } : undefined}
+                    style={selectedSeasonYear === year ? { color: '#0a0a0a' } : undefined}
                   >
-                    {formatSeasonLabel(season.year)}
+                    {formatSeasonLabel(year)}
                   </Text>
                 </TouchableOpacity>
               ))}
