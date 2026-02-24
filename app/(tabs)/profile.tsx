@@ -221,7 +221,7 @@ export default function ProfileScreen() {
 
         {/* View Stats */}
         <TouchableOpacity
-          className="mt-4 bg-accent/10 border border-accent/30 rounded-xl py-3 flex-row items-center justify-center gap-2"
+          className="mt-4 bg-accent/10 border border-accent/30 rounded-xl py-3 flex-row items-center justify-center gap-2 max-w-md self-center w-full"
           onPress={() => router.push('/stats')}
           activeOpacity={0.7}
         >

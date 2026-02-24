@@ -171,7 +171,7 @@ export default function SettingsScreen() {
       {/* Sign Out */}
       <View className="px-4 pt-6 pb-8">
         <TouchableOpacity
-          className="bg-accent-red/10 border border-accent-red/30 rounded-xl py-4 items-center"
+          className="bg-accent-red/10 border border-accent-red/30 rounded-xl py-4 items-center max-w-md self-center w-full"
           onPress={handleSignOut}
           disabled={signingOut}
         >

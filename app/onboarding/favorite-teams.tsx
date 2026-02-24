@@ -111,7 +111,7 @@ export default function OnboardingFavoriteTeams() {
 
       <View className="px-8 pb-4 pt-2">
         <TouchableOpacity
-          className="bg-accent rounded-xl py-4 items-center mb-3"
+          className="bg-accent rounded-xl py-4 items-center mb-3 max-w-md self-center w-full"
           onPress={handleNext}
           disabled={saving}
           activeOpacity={0.8}
