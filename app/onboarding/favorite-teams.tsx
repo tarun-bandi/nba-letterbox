@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useTeams } from '@/hooks/useTeams';
 import TeamLogo from '@/components/TeamLogo';
+import { PageContainer } from '@/components/PageContainer';
 
 export default function OnboardingFavoriteTeams() {
   const router = useRouter();
@@ -59,6 +60,7 @@ export default function OnboardingFavoriteTeams() {
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
+      <PageContainer className="flex-1">
       <View className="px-8 pt-6 pb-4">
         <Text className="text-muted text-sm mb-1">Step 1 of 2</Text>
         <Text className="text-white text-2xl font-bold mb-2">
@@ -111,7 +113,7 @@ export default function OnboardingFavoriteTeams() {
 
       <View className="px-8 pb-4 pt-2">
         <TouchableOpacity
-          className="bg-accent rounded-xl py-4 items-center mb-3 max-w-md self-center w-full"
+          className="bg-accent rounded-xl py-4 items-center mb-3"
           onPress={handleNext}
           disabled={saving}
           activeOpacity={0.8}
@@ -134,6 +136,7 @@ export default function OnboardingFavoriteTeams() {
           <Text className="text-muted text-sm">Skip for now</Text>
         </TouchableOpacity>
       </View>
+      </PageContainer>
     </View>
   );
 }

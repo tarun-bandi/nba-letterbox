@@ -10,6 +10,7 @@ import PlayerAvatar from '@/components/PlayerAvatar';
 import ErrorState from '@/components/ErrorState';
 import { Skeleton } from '@/components/Skeleton';
 import type { Player, Team, BoxScore, GameWithTeams } from '@/types/database';
+import { PageContainer } from '@/components/PageContainer';
 
 interface RecentGame {
   game: GameWithTeams;
@@ -210,6 +211,7 @@ export default function PlayerDetailScreen() {
         />
       }
     >
+      <PageContainer>
       {/* Header */}
       <View className="bg-surface border-b border-border mx-4 mt-4 rounded-2xl p-6">
         <View className="flex-row justify-between items-start">
@@ -370,6 +372,7 @@ export default function PlayerDetailScreen() {
           })
         )}
       </View>
+      </PageContainer>
     </ScrollView>
   );
 }

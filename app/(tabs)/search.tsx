@@ -23,6 +23,7 @@ import TeamGrid from '@/components/TeamGrid';
 import SelectedTeamsBar from '@/components/SelectedTeamsBar';
 import SearchGameCard from '@/components/SearchGameCard';
 import type { GameWithTeams, Season, UserProfile, Player, Team } from '@/types/database';
+import { PageContainer } from '@/components/PageContainer';
 
 const PAGE_SIZE = 20;
 
@@ -259,6 +260,7 @@ export default function SearchScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      <PageContainer className="flex-1">
       {/* Search bar */}
       <View className="px-4 pt-4 pb-2">
         <View className="flex-row items-center bg-surface border border-border rounded-xl px-3 gap-2">
@@ -574,6 +576,7 @@ export default function SearchScreen() {
           }
         />
       )}
+      </PageContainer>
     </View>
   );
 }

@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/lib/store/authStore';
 import { supabase } from '@/lib/supabase';
+import { PageContainer } from '@/components/PageContainer';
 
 export default function OnboardingWelcome() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function OnboardingWelcome() {
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
+      <PageContainer className="flex-1">
       <View className="flex-1 justify-center items-center px-8">
         <Text style={{ fontSize: 64 }} className="mb-6">🏀</Text>
         <Text className="text-white text-3xl font-bold text-center mb-3">
@@ -36,7 +38,7 @@ export default function OnboardingWelcome() {
 
       <View className="px-8 pb-4">
         <TouchableOpacity
-          className="bg-accent rounded-xl py-4 items-center mb-3 max-w-md self-center w-full"
+          className="bg-accent rounded-xl py-4 items-center mb-3"
           onPress={() => router.push('/onboarding/favorite-teams')}
           activeOpacity={0.8}
         >
@@ -52,6 +54,7 @@ export default function OnboardingWelcome() {
           <Text className="text-muted text-sm">Skip for now</Text>
         </TouchableOpacity>
       </View>
+      </PageContainer>
     </View>
   );
 }

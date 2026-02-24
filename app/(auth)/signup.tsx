@@ -13,6 +13,7 @@ import {
 import { Link } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { signInWithGoogle } from '@/lib/googleAuth';
+import { PageContainer } from '@/components/PageContainer';
 
 export default function SignupScreen() {
   const [displayName, setDisplayName] = useState('');
@@ -69,7 +70,7 @@ export default function SignupScreen() {
         contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
       >
-        <View className="px-6">
+        <PageContainer className="px-6">
           {/* Header */}
           <View className="mb-12 items-center">
             <Text className="text-accent text-4xl font-bold tracking-tight">
@@ -112,7 +113,7 @@ export default function SignupScreen() {
             />
 
             <TouchableOpacity
-              className="bg-accent rounded-xl py-4 items-center mt-2 max-w-md self-center w-full"
+              className="bg-accent rounded-xl py-4 items-center mt-2"
               onPress={handleSignup}
               disabled={loading || googleLoading}
             >
@@ -134,7 +135,7 @@ export default function SignupScreen() {
 
             {/* Google Sign In */}
             <TouchableOpacity
-              className="bg-surface border border-border rounded-xl py-4 items-center mt-4 max-w-md self-center w-full"
+              className="bg-surface border border-border rounded-xl py-4 items-center mt-4"
               onPress={handleGoogleSignIn}
               disabled={loading || googleLoading}
             >
@@ -155,7 +156,7 @@ export default function SignupScreen() {
               <Text className="text-accent font-medium">Sign In</Text>
             </Link>
           </View>
-        </View>
+        </PageContainer>
       </ScrollView>
     </KeyboardAvoidingView>
   );

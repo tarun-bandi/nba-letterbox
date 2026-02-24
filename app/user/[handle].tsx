@@ -20,6 +20,7 @@ import ErrorState from '@/components/ErrorState';
 import GameCard from '@/components/GameCard';
 import FollowListModal from '@/components/FollowListModal';
 import type { GameLogWithGame, UserProfile } from '@/types/database';
+import { PageContainer } from '@/components/PageContainer';
 
 interface PublicProfileData {
   profile: UserProfile;
@@ -159,6 +160,7 @@ export default function UserProfileScreen() {
         />
       }
     >
+      <PageContainer>
       {/* Header */}
       <View className="bg-surface border-b border-border px-6 py-6">
         <View className="flex-row justify-between items-start">
@@ -259,6 +261,7 @@ export default function UserProfileScreen() {
           onClose={() => setShowFollowList(null)}
         />
       )}
+      </PageContainer>
     </ScrollView>
   );
 }

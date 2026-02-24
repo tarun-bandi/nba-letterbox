@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import { usePreferencesStore } from '@/lib/store/preferencesStore';
 import Avatar from '@/components/Avatar';
+import { PageContainer } from '@/components/PageContainer';
 import type { UserProfile, WatchMode } from '@/types/database';
 
 const WATCH_MODES: { value: WatchMode | null; label: string }[] = [
@@ -73,6 +74,7 @@ export default function SettingsScreen() {
       className="flex-1 bg-background"
       showsVerticalScrollIndicator={false}
     >
+      <PageContainer>
       {/* Account */}
       <View className="px-4 pt-4">
         <Text className="text-muted text-xs font-semibold uppercase tracking-wider mb-3">
@@ -171,7 +173,7 @@ export default function SettingsScreen() {
       {/* Sign Out */}
       <View className="px-4 pt-6 pb-8">
         <TouchableOpacity
-          className="bg-accent-red/10 border border-accent-red/30 rounded-xl py-4 items-center max-w-md self-center w-full"
+          className="bg-accent-red/10 border border-accent-red/30 rounded-xl py-4 items-center"
           onPress={handleSignOut}
           disabled={signingOut}
         >
@@ -184,6 +186,7 @@ export default function SettingsScreen() {
           )}
         </TouchableOpacity>
       </View>
+      </PageContainer>
     </ScrollView>
   );
 }

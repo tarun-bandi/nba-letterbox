@@ -17,6 +17,7 @@ import Avatar from '@/components/Avatar';
 import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
 import { DiscoverSkeleton } from '@/components/Skeleton';
+import { PageContainer } from '@/components/PageContainer';
 import type { GameWithTeams, UserProfile, LogTag } from '@/types/database';
 
 interface MostLoggedGame {
@@ -290,6 +291,7 @@ export default function DiscoverScreen() {
         />
       }
     >
+      <PageContainer>
       {/* People to Follow */}
       {showSuggestions && (
         <View className="px-4 pt-4">
@@ -483,6 +485,7 @@ export default function DiscoverScreen() {
           ))
         )}
       </View>
+      </PageContainer>
     </ScrollView>
   );
 }

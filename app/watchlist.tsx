@@ -8,6 +8,7 @@ import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
 import ErrorState from '@/components/ErrorState';
 import type { GameWithTeams } from '@/types/database';
+import { PageContainer } from '@/components/PageContainer';
 
 interface WatchlistItem {
   game: GameWithTeams;
@@ -88,6 +89,7 @@ export default function WatchlistScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      <PageContainer className="flex-1">
       <FlatList
         data={items}
         keyExtractor={(item) => item.game.id}
@@ -160,6 +162,7 @@ export default function WatchlistScreen() {
         }
         showsVerticalScrollIndicator={false}
       />
+      </PageContainer>
     </View>
   );
 }

@@ -16,6 +16,7 @@ import { useAuthStore } from '@/lib/store/authStore';
 import { useToastStore } from '@/lib/store/toastStore';
 import { pickAndUploadAvatar } from '@/lib/uploadAvatar';
 import Avatar from '@/components/Avatar';
+import { PageContainer } from '@/components/PageContainer';
 
 export default function OnboardingProfileSetup() {
   const insets = useSafeAreaInsets();
@@ -115,6 +116,7 @@ export default function OnboardingProfileSetup() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <PageContainer>
           <View className="px-8 pt-6 pb-4">
             <Text className="text-muted text-sm mb-1">Step 2 of 2</Text>
             <Text className="text-white text-2xl font-bold mb-2">
@@ -187,11 +189,13 @@ export default function OnboardingProfileSetup() {
               </Text>
             </View>
           </View>
+          </PageContainer>
         </ScrollView>
 
+        <PageContainer>
         <View className="px-8 pb-4 pt-2">
           <TouchableOpacity
-            className="bg-accent rounded-xl py-4 items-center mb-3 max-w-md self-center w-full"
+            className="bg-accent rounded-xl py-4 items-center mb-3"
             onPress={handleDone}
             disabled={saving}
             activeOpacity={0.8}
@@ -212,6 +216,7 @@ export default function OnboardingProfileSetup() {
             <Text className="text-muted text-sm">Skip for now</Text>
           </TouchableOpacity>
         </View>
+        </PageContainer>
       </KeyboardAvoidingView>
     </View>
   );
