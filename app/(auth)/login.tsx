@@ -12,6 +12,7 @@ import {
 import { Link } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { signInWithGoogle } from '@/lib/googleAuth';
+import { PageContainer } from '@/components/PageContainer';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -53,6 +54,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View className="flex-1 justify-center px-6">
+        <PageContainer>
         {/* Logo / Header */}
         <View className="mb-12 items-center">
           <Text className="text-accent text-4xl font-bold tracking-tight">
@@ -86,7 +88,7 @@ export default function LoginScreen() {
           />
 
           <TouchableOpacity
-            className="bg-accent rounded-xl py-4 items-center mt-2 max-w-md self-center w-full"
+            className="bg-accent rounded-xl py-4 items-center mt-2"
             onPress={handleLogin}
             disabled={loading || googleLoading}
           >
@@ -108,7 +110,7 @@ export default function LoginScreen() {
 
           {/* Google Sign In */}
           <TouchableOpacity
-            className="bg-surface border border-border rounded-xl py-4 items-center mt-4 max-w-md self-center w-full"
+            className="bg-surface border border-border rounded-xl py-4 items-center mt-4"
             onPress={handleGoogleSignIn}
             disabled={loading || googleLoading}
           >
@@ -129,6 +131,7 @@ export default function LoginScreen() {
             <Text className="text-accent font-medium">Sign Up</Text>
           </Link>
         </View>
+        </PageContainer>
       </View>
     </KeyboardAvoidingView>
   );

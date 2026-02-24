@@ -16,6 +16,7 @@ import TodaysGames from '@/components/TodaysGames';
 import ErrorState from '@/components/ErrorState';
 import { FeedSkeleton } from '@/components/Skeleton';
 import type { GameLogWithGame } from '@/types/database';
+import { PageContainer } from '@/components/PageContainer';
 
 const PAGE_SIZE = 20;
 
@@ -142,6 +143,7 @@ export default function FeedScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      <PageContainer className="flex-1">
       <FlatList
         data={allLogs}
         keyExtractor={(item) => item.id}
@@ -195,6 +197,7 @@ export default function FeedScreen() {
         maxToRenderPerBatch={10}
         windowSize={5}
       />
+      </PageContainer>
     </View>
   );
 }

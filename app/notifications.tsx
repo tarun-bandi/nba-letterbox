@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import Avatar from '@/components/Avatar';
 import type { UserProfile } from '@/types/database';
+import { PageContainer } from '@/components/PageContainer';
 
 type NotificationType = 'like' | 'comment' | 'follow';
 
@@ -176,6 +177,7 @@ export default function NotificationsScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      <PageContainer className="flex-1">
       <FlatList
         data={notifications}
         keyExtractor={(item) => item.id}
@@ -234,6 +236,7 @@ export default function NotificationsScreen() {
         }
         showsVerticalScrollIndicator={false}
       />
+      </PageContainer>
     </View>
   );
 }

@@ -24,6 +24,7 @@ import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
 import RatingHistogram from '@/components/RatingHistogram';
 import type { GameWithTeams, GameLogWithGame, BoxScore } from '@/types/database';
+import { PageContainer } from '@/components/PageContainer';
 
 interface GameDetail {
   game: GameWithTeams;
@@ -595,6 +596,7 @@ export default function GameDetailScreen() {
           />
         }
       >
+        <PageContainer>
         {/* Score Card */}
         <View className="bg-surface border-b border-border mx-4 mt-4 rounded-2xl p-6">
           <View className="flex-row justify-between items-center">
@@ -794,6 +796,7 @@ export default function GameDetailScreen() {
             <DetailsSection game={game} />
           )}
         </View>
+        </PageContainer>
       </ScrollView>
 
       {/* Log Modal */}

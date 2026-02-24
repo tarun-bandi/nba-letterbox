@@ -15,6 +15,7 @@ import { useAuthStore } from '@/lib/store/authStore';
 import TeamLogo from '@/components/TeamLogo';
 import CreateListModal from '@/components/CreateListModal';
 import type { List, GameWithTeams } from '@/types/database';
+import { PageContainer } from '@/components/PageContainer';
 
 interface ListDetail {
   list: List;
@@ -130,6 +131,7 @@ export default function ListDetailScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      <PageContainer className="flex-1">
       {/* Header */}
       <View className="bg-surface border-b border-border px-5 py-5">
         <View className="flex-row items-center gap-2">
@@ -219,6 +221,8 @@ export default function ListDetailScreen() {
         )}
         showsVerticalScrollIndicator={false}
       />
+
+      </PageContainer>
 
       {showEditModal && (
         <CreateListModal

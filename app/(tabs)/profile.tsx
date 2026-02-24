@@ -26,6 +26,7 @@ import PlayerAvatar from '@/components/PlayerAvatar';
 import DiaryCalendar from '@/components/DiaryCalendar';
 import { ProfileSkeleton } from '@/components/Skeleton';
 import ErrorState from '@/components/ErrorState';
+import { PageContainer } from '@/components/PageContainer';
 import type { GameLogWithGame, UserProfile, List, Team, Player } from '@/types/database';
 
 interface ProfileData {
@@ -159,6 +160,7 @@ export default function ProfileScreen() {
         />
       }
     >
+      <PageContainer>
       {/* Header */}
       <View className="bg-surface border-b border-border px-6 py-6">
         <View className="flex-row justify-between items-start">
@@ -221,7 +223,7 @@ export default function ProfileScreen() {
 
         {/* View Stats */}
         <TouchableOpacity
-          className="mt-4 bg-accent/10 border border-accent/30 rounded-xl py-3 flex-row items-center justify-center gap-2 max-w-md self-center w-full"
+          className="mt-4 bg-accent/10 border border-accent/30 rounded-xl py-3 flex-row items-center justify-center gap-2"
           onPress={() => router.push('/stats')}
           activeOpacity={0.7}
         >
@@ -459,6 +461,7 @@ export default function ProfileScreen() {
           onClose={() => setShowFollowList(null)}
         />
       )}
+      </PageContainer>
     </ScrollView>
   );
 }

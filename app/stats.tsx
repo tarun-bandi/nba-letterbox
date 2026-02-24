@@ -7,6 +7,7 @@ import StatBar from '@/components/StatBar';
 import ErrorState from '@/components/ErrorState';
 import { Skeleton } from '@/components/Skeleton';
 import type { WatchMode } from '@/types/database';
+import { PageContainer } from '@/components/PageContainer';
 
 interface StatsData {
   totalGames: number;
@@ -221,6 +222,7 @@ export default function StatsScreen() {
         />
       }
     >
+      <PageContainer>
       {/* Quick Stats Grid */}
       <View className="px-4 pt-4">
         <View className="flex-row gap-3 mb-3">
@@ -317,6 +319,7 @@ export default function StatsScreen() {
           ))
         )}
       </View>
+      </PageContainer>
     </ScrollView>
   );
 }
