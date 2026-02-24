@@ -68,7 +68,9 @@ export function formatLiveStatus(
   // Build from period + time (status is bare "Q3", "OT1", etc.)
   if (period > 0) {
     const label = period <= 4 ? `Q${period}` : `OT${period - 4}`;
-    return time ? `${label} ${time}` : label;
+    // BDL time field may already include quarter prefix — strip it
+    const clock = time ? time.replace(/^(q\d|ot\d?)\s+/i, '') : '';
+    return clock ? `${label} ${clock}` : label;
   }
 
   return 'In Progress';
