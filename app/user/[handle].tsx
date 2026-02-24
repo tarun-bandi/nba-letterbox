@@ -29,7 +29,7 @@ import { PageContainer } from '@/components/PageContainer';
 interface PublicProfileData {
   profile: UserProfile;
   logs: GameLogWithGame[];
-  stats: { count: number; avgRating: number | null };
+  stats: { count: number };
   isFollowing: boolean;
   followerCount: number;
   followingCount: number;
@@ -83,11 +83,6 @@ async function fetchPublicProfile(
 
   const rawLogs = (logsRes.data ?? []) as unknown as GameLogWithGame[];
   const logs = await enrichLogs(rawLogs, currentUserId);
-  const ratings = logs.filter((l) => l.rating !== null).map((l) => l.rating!);
-  const avgRating =
-    ratings.length > 0
-      ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) / 10
-      : null;
 
   // Prediction accuracy
   let predictionAccuracy: { correct: number; total: number } | null = null;
@@ -112,7 +107,7 @@ async function fetchPublicProfile(
   return {
     profile,
     logs,
-    stats: { count: logs.length, avgRating },
+    stats: { count: logs.length },
     isFollowing: followRes.data !== null,
     followerCount: followerRes.count ?? 0,
     followingCount: followingRes.count ?? 0,
@@ -258,12 +253,6 @@ export default function UserProfileScreen() {
           <View>
             <Text className="text-accent text-xl font-bold">{stats.count}</Text>
             <Text className="text-muted text-xs mt-0.5">Games</Text>
-          </View>
-          <View>
-            <Text className="text-accent text-xl font-bold">
-              {stats.avgRating !== null ? stats.avgRating.toFixed(1) : '—'}
-            </Text>
-            <Text className="text-muted text-xs mt-0.5">Avg Rating</Text>
           </View>
           <TouchableOpacity onPress={() => setShowFollowList('followers')}>
             <Text className="text-accent text-xl font-bold">{followerCount}</Text>

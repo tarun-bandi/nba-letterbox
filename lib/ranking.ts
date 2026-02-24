@@ -1,5 +1,8 @@
 import type { GameWithTeams, Sentiment, FanOf } from '@/types/database';
 
+/** Minimum ranked games before numeric scores are displayed */
+export const MIN_RANKED_FOR_SCORE = 10;
+
 /** Derive a 0-10 score from position in ranked list, with optional fan boost */
 export function deriveScore(position: number, totalCount: number, fanOf?: FanOf | null): number {
   if (totalCount <= 1) return 10;
@@ -13,23 +16,8 @@ export function formatScore(score: number): string {
   return score.toFixed(1);
 }
 
-/** Given a sentiment and total ranked count, return the [low, high] position range (1-indexed, inclusive) */
-export function sentimentRange(
-  sentiment: Sentiment,
-  totalCount: number,
-): [number, number] {
-  const quarter = Math.ceil(totalCount / 4);
-  switch (sentiment) {
-    case 'loved':
-      return [1, Math.min(quarter, totalCount)];
-    case 'good':
-      return [quarter + 1, Math.min(quarter * 2, totalCount)];
-    case 'okay':
-      return [quarter * 2 + 1, Math.min(quarter * 3, totalCount)];
-    case 'bad':
-      return [quarter * 3 + 1, totalCount];
-  }
-}
+/** Sentiment ordering from best to worst */
+export const SENTIMENT_ORDER: Sentiment[] = ['loved', 'good', 'okay', 'bad'];
 
 /** Detect fan affiliation based on user's favorite teams */
 export function detectFanOf(game: GameWithTeams, favoriteTeamIds: string[]): FanOf {

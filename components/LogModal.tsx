@@ -18,7 +18,6 @@ import { useAuthStore } from '@/lib/store/authStore';
 import { useToastStore } from '@/lib/store/toastStore';
 import { removeGameRanking } from '@/lib/rankingService';
 import * as Haptics from 'expo-haptics';
-import StarRating from './StarRating';
 import type { GameLog, WatchMode, LogTag } from '@/types/database';
 
 export interface LogModalResult {
@@ -48,9 +47,6 @@ export default function LogModal({
 }: LogModalProps) {
   const { user } = useAuthStore();
   const toast = useToastStore();
-  const [rating, setRating] = useState<number>(
-    existingLog?.rating != null ? existingLog.rating / 10 : 0
-  );
   const [watchMode, setWatchMode] = useState<WatchMode | null>(
     existingLog?.watch_mode ?? null
   );
@@ -139,7 +135,6 @@ export default function LogModal({
         {
           user_id: user.id,
           game_id: gameId,
-          rating: rating > 0 ? Math.round(rating * 10) : null,
           watch_mode: watchMode,
           review: review.trim() || null,
           has_spoilers: hasSpoilers,
@@ -210,19 +205,6 @@ export default function LogModal({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {/* Star Rating */}
-              <View className="mb-5">
-                <Text className="text-muted text-sm mb-2">Rating</Text>
-                <View className="flex-row items-center gap-4">
-                  <StarRating value={rating} onChange={setRating} size={32} />
-                  {rating > 0 && (
-                    <Text className="text-accent font-semibold text-base">
-                      {rating.toFixed(1)}
-                    </Text>
-                  )}
-                </View>
-              </View>
-
               {/* Watch Mode */}
               <View className="mb-5">
                 <Text className="text-muted text-sm mb-2">How did you watch?</Text>

@@ -11,12 +11,13 @@ import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useToastStore } from '@/lib/store/toastStore';
 import {
-  sentimentRange,
+  SENTIMENT_ORDER,
   initComparison,
   advanceComparison,
   deriveScore,
   formatScore,
   detectFanOf,
+  MIN_RANKED_FOR_SCORE,
   type ComparisonState,
 } from '@/lib/ranking';
 import {
@@ -43,6 +44,52 @@ interface RankingFlowModalProps {
   isRerank?: boolean;
 }
 
+/**
+ * Auto-place a game when no same-sentiment games exist.
+ * Insert after all games with a "better" sentiment.
+ * Sentiment order: loved > good > okay > bad
+ */
+function autoPlaceForSentiment(sentiment: Sentiment, rankedGames: RankedGame[]): number {
+  const sentimentIdx = SENTIMENT_ORDER.indexOf(sentiment);
+  const betterSentiments = SENTIMENT_ORDER.slice(0, sentimentIdx);
+
+  if (betterSentiments.length === 0) {
+    // This is "loved" — place at #1
+    return 1;
+  }
+
+  // Find the last game with a better sentiment
+  let lastBetterPos = 0;
+  for (const g of rankedGames) {
+    if (g.sentiment && betterSentiments.includes(g.sentiment)) {
+      lastBetterPos = Math.max(lastBetterPos, g.position);
+    }
+  }
+
+  return lastBetterPos + 1;
+}
+
+/**
+ * Map a filtered-list binary search position back to a full-list position.
+ * filteredPos is 1-indexed within the filteredGames array.
+ */
+function mapToFullListPosition(filteredPos: number, filteredGames: RankedGame[]): number {
+  if (filteredGames.length === 0) return 1;
+
+  if (filteredPos <= 1) {
+    // Insert before the first same-sentiment game
+    return filteredGames[0].position;
+  }
+
+  if (filteredPos > filteredGames.length) {
+    // Insert after the last same-sentiment game
+    return filteredGames[filteredGames.length - 1].position + 1;
+  }
+
+  // Insert at the position of the game at filteredPos - 1
+  return filteredGames[filteredPos - 1].position;
+}
+
 export default function RankingFlowModal({
   visible,
   gameId,
@@ -55,6 +102,7 @@ export default function RankingFlowModal({
   const toast = useToastStore();
   const [step, setStep] = useState<FlowStep>('loading');
   const [rankedGames, setRankedGames] = useState<RankedGame[]>([]);
+  const [filteredGames, setFilteredGames] = useState<RankedGame[]>([]);
   const [compState, setCompState] = useState<ComparisonState | null>(null);
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -126,29 +174,29 @@ export default function RankingFlowModal({
   const handleSentiment = useCallback((selected: Sentiment) => {
     setSentiment(selected);
 
-    const count = rankedGames.length;
-
-    if (count === 0) {
+    if (rankedGames.length === 0) {
       // First game — auto insert at #1
       setInsertPosition(1);
       setStep('placement');
-    } else if (count === 1) {
+      return;
+    }
+
+    // Filter to only same-sentiment games
+    const sameSentiment = rankedGames.filter((g) => g.sentiment === selected);
+    setFilteredGames(sameSentiment);
+
+    if (sameSentiment.length === 0) {
+      // No same-sentiment games — auto-place based on sentiment ordering
+      const pos = autoPlaceForSentiment(selected, rankedGames);
+      setInsertPosition(pos);
+      setStep('placement');
+    } else if (sameSentiment.length === 1) {
       // Exactly 1 comparison needed
       setCompState(initComparison(1, 1));
       setStep('comparison');
     } else {
-      // Always narrow by sentiment
-      const [low, high] = sentimentRange(selected, count);
-      // Clamp to valid range
-      const clampedLow = Math.max(1, Math.min(low, count));
-      const clampedHigh = Math.max(clampedLow, Math.min(high, count));
-      if (clampedLow === clampedHigh) {
-        setInsertPosition(clampedLow);
-        setStep('placement');
-      } else {
-        setCompState(initComparison(clampedLow, clampedHigh));
-        setStep('comparison');
-      }
+      setCompState(initComparison(1, sameSentiment.length));
+      setStep('comparison');
     }
   }, [rankedGames]);
 
@@ -156,15 +204,17 @@ export default function RankingFlowModal({
     if (!compState) return;
 
     const result = choice === 'new' ? 'new_is_better' : 'existing_is_better';
-    const { nextState, insertPosition: pos } = advanceComparison(compState, result);
+    const { nextState, insertPosition: filteredPos } = advanceComparison(compState, result);
 
-    if (pos !== null) {
-      setInsertPosition(pos);
+    if (filteredPos !== null) {
+      // Map filtered position back to full-list position
+      const fullPos = mapToFullListPosition(filteredPos, filteredGames);
+      setInsertPosition(fullPos);
       setStep('placement');
     } else if (nextState) {
       setCompState(nextState);
     }
-  }, [compState]);
+  }, [compState, filteredGames]);
 
   const handleConfirm = useCallback(async () => {
     if (!user || insertPosition === null || !sentiment) return;
@@ -194,6 +244,7 @@ export default function RankingFlowModal({
     if (!visible) {
       setStep('loading');
       setRankedGames([]);
+      setFilteredGames([]);
       setCompState(null);
       setInsertPosition(null);
       setSaving(false);
@@ -204,12 +255,13 @@ export default function RankingFlowModal({
   }, [visible]);
 
   const totalAfterInsert = rankedGames.length + 1;
-  const score = insertPosition !== null ? deriveScore(insertPosition, totalAfterInsert, fanOf) : 0;
+  const showScore = totalAfterInsert >= MIN_RANKED_FOR_SCORE;
+  const score = insertPosition !== null && showScore ? deriveScore(insertPosition, totalAfterInsert, fanOf) : 0;
   const isFanGame = fanOf !== 'neutral';
 
-  // Get the current comparison game from ranked list
+  // Get the current comparison game from filtered list
   const comparisonGame = compState
-    ? rankedGames[compState.midIndex - 1]
+    ? filteredGames[compState.midIndex - 1]
     : null;
 
   return (
@@ -319,14 +371,20 @@ export default function RankingFlowModal({
               <Text className="text-muted text-sm mb-1">
                 of {totalAfterInsert} ranked games
               </Text>
-              <View className="flex-row items-center gap-1.5 mb-6">
-                <Text className="text-accent text-3xl font-bold">
-                  {formatScore(score)}
+              {showScore ? (
+                <View className="flex-row items-center gap-1.5 mb-6">
+                  <Text className="text-accent text-3xl font-bold">
+                    {formatScore(score)}
+                  </Text>
+                  {isFanGame && (
+                    <Heart size={16} color="#c9a84c" fill="#c9a84c" />
+                  )}
+                </View>
+              ) : (
+                <Text className="text-muted text-sm mb-6">
+                  Rank {MIN_RANKED_FOR_SCORE - totalAfterInsert} more game{MIN_RANKED_FOR_SCORE - totalAfterInsert !== 1 ? 's' : ''} to unlock your score
                 </Text>
-                {isFanGame && (
-                  <Heart size={16} color="#c9a84c" fill="#c9a84c" />
-                )}
-              </View>
+              )}
 
               <TouchableOpacity
                 className="bg-accent rounded-xl py-4 px-8 items-center w-full mb-3"

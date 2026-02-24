@@ -18,7 +18,6 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import Avatar from './Avatar';
 import CommentsSheet from './CommentsSheet';
-import StarRating from './StarRating';
 import TeamLogo from './TeamLogo';
 import PlayoffBadge from './PlayoffBadge';
 import RankBadge from './RankBadge';
@@ -66,7 +65,6 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [commentCount, setCommentCount] = useState(log.comment_count ?? 0);
   const game = log.game;
-  const ratingDisplay = log.rating !== null ? log.rating / 10 : null;
 
   // Fire overlay animation (for double-tap)
   const fireScale = useSharedValue(0);
@@ -223,10 +221,9 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
 
   const handleShare = () => {
     if (!game) return;
-    const rating = ratingDisplay !== null ? ` \u2605${ratingDisplay.toFixed(1)}` : '';
     const snippet = log.review ? ` \u2014 "${log.review.slice(0, 80)}${log.review.length > 80 ? '...' : ''}"` : '';
     const url = gameUrl(game.id);
-    const message = `I rated ${game.away_team.abbreviation} @ ${game.home_team.abbreviation}${rating} on NBA Letterbox${snippet}\n${url}`;
+    const message = `I logged ${game.away_team.abbreviation} @ ${game.home_team.abbreviation} on NBA Letterbox${snippet}\n${url}`;
     RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
   };
 
@@ -311,16 +308,8 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
           </TouchableOpacity>
         )}
 
-        {/* Rating + watch mode */}
+        {/* Watch mode + rank */}
         <View className="flex-row items-center gap-3 mt-3">
-          {ratingDisplay !== null && (
-            <>
-              <StarRating value={ratingDisplay} readonly size={16} />
-              <Text className="text-accent text-sm font-semibold">
-                {ratingDisplay.toFixed(1)}
-              </Text>
-            </>
-          )}
           {log.watch_mode && (
             <View className="bg-background border border-border rounded-full px-2.5 py-0.5">
               <Text className="text-muted text-xs">
