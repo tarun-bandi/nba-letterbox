@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Trophy, Heart } from 'lucide-react-native';
 import { useAuthStore } from '@/lib/store/authStore';
 import { fetchRankedList, type RankedGame } from '@/lib/rankingService';
-import { deriveScore, formatScore } from '@/lib/ranking';
+import { deriveScore, formatScore, MIN_RANKED_FOR_SCORE } from '@/lib/ranking';
 import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
 import ErrorState from '@/components/ErrorState';
@@ -39,8 +39,10 @@ export default function RankingsScreen() {
     );
   }
 
+  const showScores = totalCount >= MIN_RANKED_FOR_SCORE;
+
   const renderItem = ({ item }: { item: RankedGame }) => {
-    const score = deriveScore(item.position, totalCount, item.fan_of);
+    const score = showScores ? deriveScore(item.position, totalCount, item.fan_of) : 0;
     const game = item.game;
 
     return (
@@ -59,7 +61,7 @@ export default function RankingsScreen() {
         {/* Game info */}
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
-            <TeamLogo abbreviation={game.away_team.abbreviation} size={20} />
+            <TeamLogo abbreviation={game.away_team.abbreviation} sport={game.sport ?? 'nba'} size={20} />
             <Text className="text-white font-semibold text-sm">
               {game.away_team.abbreviation}
             </Text>
@@ -71,29 +73,31 @@ export default function RankingsScreen() {
             <Text className="text-white font-semibold text-sm">
               {game.home_team.abbreviation}
             </Text>
-            <TeamLogo abbreviation={game.home_team.abbreviation} size={20} />
+            <TeamLogo abbreviation={game.home_team.abbreviation} sport={game.sport ?? 'nba'} size={20} />
           </View>
           <View className="flex-row items-center gap-2 mt-1">
             <Text className="text-muted text-xs">
               {formatDate(game.game_date_utc)}
             </Text>
             {game.playoff_round && (
-              <PlayoffBadge round={game.playoff_round} />
+              <PlayoffBadge round={game.playoff_round} sport={game.sport ?? 'nba'} />
             )}
           </View>
         </View>
 
         {/* Score */}
-        <View className="items-end ml-3">
-          <View className="flex-row items-center gap-1">
-            <Text className="text-accent font-bold text-lg">
-              {formatScore(score)}
-            </Text>
-            {item.fan_of && item.fan_of !== 'neutral' && (
-              <Heart size={12} color="#c9a84c" fill="#c9a84c" />
-            )}
+        {showScores && (
+          <View className="items-end ml-3">
+            <View className="flex-row items-center gap-1">
+              <Text className="text-accent font-bold text-lg">
+                {formatScore(score)}
+              </Text>
+              {item.fan_of && item.fan_of !== 'neutral' && (
+                <Heart size={12} color="#c9a84c" fill="#c9a84c" />
+              )}
+            </View>
           </View>
-        </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -113,11 +117,18 @@ export default function RankingsScreen() {
       }
       ListHeaderComponent={
         totalCount > 0 ? (
-          <View className="flex-row items-center gap-2 mb-4">
-            <Trophy size={18} color="#c9a84c" />
-            <Text className="text-white font-semibold text-base">
-              {totalCount} Ranked Games
-            </Text>
+          <View className="mb-4">
+            <View className="flex-row items-center gap-2">
+              <Trophy size={18} color="#c9a84c" />
+              <Text className="text-white font-semibold text-base">
+                {totalCount} Ranked Games
+              </Text>
+            </View>
+            {!showScores && (
+              <Text className="text-muted text-sm mt-2">
+                Rank {MIN_RANKED_FOR_SCORE - totalCount} more game{MIN_RANKED_FOR_SCORE - totalCount !== 1 ? 's' : ''} to see scores
+              </Text>
+            )}
           </View>
         ) : null
       }
