@@ -1,6 +1,6 @@
 import '../global.css';
 import { useEffect, useRef } from 'react';
-import { StatusBar } from 'react-native';
+import { View, StatusBar, Image, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -135,7 +135,19 @@ export default function RootLayout() {
   useProtectedRoute();
   usePushNotifications();
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0a0a0a', alignItems: 'center', justifyContent: 'center' }}>
+        <StatusBar barStyle="light-content" />
+        <Image
+          source={require('@/assets/splash-icon.png')}
+          style={{ width: 120, height: 120, tintColor: '#c9a84c' }}
+          resizeMode="contain"
+        />
+        <ActivityIndicator color="#c9a84c" size="small" style={{ marginTop: 24 }} />
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
