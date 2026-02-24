@@ -2,6 +2,8 @@
  * BallDontLie API client for live score polling.
  */
 
+import { Platform } from 'react-native';
+
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 const BDL_API_KEY = process.env.EXPO_PUBLIC_BALLDONTLIE_API_KEY ?? '';
 
@@ -70,6 +72,30 @@ export function formatLiveStatus(
 }
 
 export async function fetchTodaysGamesFromBDL(): Promise<BdlGame[]> {
+  if (Platform.OS === 'web') {
+    return fetchViaProxy();
+  }
+  return fetchDirectFromBDL();
+}
+
+/** Web: call our Vercel serverless proxy (no CORS, no exposed key) */
+async function fetchViaProxy(): Promise<BdlGame[]> {
+  try {
+    const res = await fetch('/api/scores');
+    if (!res.ok) {
+      console.warn(`Proxy API error: ${res.status}`);
+      return [];
+    }
+    const json: BdlGamesResponse = await res.json();
+    return json.data;
+  } catch (err) {
+    console.warn('Failed to fetch from proxy:', err);
+    return [];
+  }
+}
+
+/** Native: call BDL directly with the EXPO_PUBLIC_ key */
+async function fetchDirectFromBDL(): Promise<BdlGame[]> {
   if (!BDL_API_KEY) {
     console.warn('Missing EXPO_PUBLIC_BALLDONTLIE_API_KEY — skipping live scores');
     return [];

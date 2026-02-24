@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "seed": "npx ts-node --project tsconfig.scripts.json scripts/seed.ts",
     "seed:games": "npx ts-node --project tsconfig.scripts.json scripts/seed.ts --games-only",
-    "scrape:boxscores": "python scripts/scrape_box_scores.py"
+    "scrape:boxscores": "python scripts/scrape_box_scores.py",
+    "scrape:players": "python scripts/scrape_players.py"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -47,6 +48,7 @@
     "@babel/core": "^7.25.2",
     "@types/node": "^22.0.0",
     "@types/react": "~19.1.0",
+    "@vercel/node": "^5.6.6",
     "dotenv": "^16.0.0",
     "ts-node": "^10.9.0",
     "typescript": "~5.9.2"
