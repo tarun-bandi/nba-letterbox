@@ -8,13 +8,15 @@ import {
   RefreshControl,
   Keyboard,
   Linking,
+  Share as RNShare,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
-import { List, Play, Bookmark } from 'lucide-react-native';
+import { List, Play, Bookmark, Share2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import GameCard from '@/components/GameCard';
 import ErrorState from '@/components/ErrorState';
@@ -23,6 +25,7 @@ import AddToListModal from '@/components/AddToListModal';
 import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
 import RatingHistogram from '@/components/RatingHistogram';
+import { gameUrl } from '@/lib/urls';
 import type { GameWithTeams, GameLogWithGame, BoxScore } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
 import { usePlayByPlay, type PlayByPlayAction } from '@/hooks/usePlayByPlay';
@@ -923,6 +926,17 @@ export default function GameDetailScreen() {
               activeOpacity={0.8}
             >
               <List size={22} color="#c9a84c" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="bg-surface border border-border rounded-xl w-12 py-4 items-center justify-center"
+              onPress={() => {
+                const url = gameUrl(game.id);
+                const message = `Check out ${game.away_team.abbreviation} @ ${game.home_team.abbreviation} on NBA Letterbox\n${url}`;
+                RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
+              }}
+              activeOpacity={0.8}
+            >
+              <Share2 size={22} color="#c9a84c" />
             </TouchableOpacity>
           </View>
         ) : (

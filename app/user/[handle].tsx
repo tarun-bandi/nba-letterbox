@@ -6,10 +6,12 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
+  Share as RNShare,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserPlus, UserMinus } from 'lucide-react-native';
+import { UserPlus, UserMinus, Share2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
@@ -19,6 +21,7 @@ import Avatar from '@/components/Avatar';
 import ErrorState from '@/components/ErrorState';
 import GameCard from '@/components/GameCard';
 import FollowListModal from '@/components/FollowListModal';
+import { userUrl } from '@/lib/urls';
 import type { GameLogWithGame, UserProfile } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
 
@@ -206,6 +209,17 @@ export default function UserProfileScreen() {
             </View>
           </View>
 
+          <View className="flex-row items-center gap-2">
+          <TouchableOpacity
+            onPress={() => {
+              const url = userUrl(profile.handle);
+              const message = `Check out @${profile.handle} on NBA Letterbox\n${url}`;
+              RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
+            }}
+            className="p-2"
+          >
+            <Share2 size={20} color="#6b7280" />
+          </TouchableOpacity>
           {!isOwnProfile && (
             <TouchableOpacity
               className={`flex-row items-center gap-1.5 px-4 py-2 rounded-full border ${
@@ -239,6 +253,7 @@ export default function UserProfileScreen() {
               )}
             </TouchableOpacity>
           )}
+          </View>
         </View>
 
         {/* Stats */}
