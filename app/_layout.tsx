@@ -1,14 +1,27 @@
 import '../global.css';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StatusBar } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Notifications from 'expo-notifications';
 import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
+import { registerForPushNotificationsAsync, savePushToken } from '@/lib/pushNotifications';
 import Toast from '@/components/Toast';
+
+// Show notifications when app is in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 function useProtectedRoute() {
   const { session, isLoading, onboardingCompleted } = useAuthStore();
@@ -55,6 +68,38 @@ async function fetchOnboardingStatus(userId: string): Promise<boolean> {
   return true;
 }
 
+function usePushNotifications() {
+  const { session } = useAuthStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!session?.user) return;
+
+    // Register push token
+    registerForPushNotificationsAsync().then((token) => {
+      if (token) {
+        savePushToken(token, session.user.id);
+      }
+    });
+
+    // Handle notification tap deep-linking
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+        if (data?.type === 'like' || data?.type === 'comment') {
+          if (data.gameId) router.push(`/game/${data.gameId}`);
+        } else if (data?.type === 'follow') {
+          if (data.handle) router.push(`/user/${data.handle}`);
+        }
+      },
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [session?.user?.id]);
+}
+
 export default function RootLayout() {
   const { isLoading, setSession, setLoading, setOnboardingCompleted } = useAuthStore();
 
@@ -88,6 +133,7 @@ export default function RootLayout() {
   }, []);
 
   useProtectedRoute();
+  usePushNotifications();
 
   if (isLoading) return null;
 

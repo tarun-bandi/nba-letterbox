@@ -10,6 +10,7 @@ import type { GameWithTeams } from '@/types/database';
 interface TodaysGamesData {
   games: GameWithTeams[];
   favoriteTeamIds: Set<string>;
+  predictedGameIds: Set<string>;
 }
 
 /** Return today's date as YYYY-MM-DD in US Eastern time (NBA schedule TZ). */
@@ -19,11 +20,14 @@ function getTodayDateStr(): string {
 
 async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
   const today = getTodayDateStr();
+  // NBA games on a given ET date can have UTC datetimes spanning into the next UTC day
+  // (e.g. 7 PM ET = next day 00:00 UTC). Use a wide UTC window to capture all games.
+  const startUTC = `${today}T00:00:00Z`;   // covers noon ET games
   const [y, m, d] = today.split('-').map(Number);
-  const tomorrowDate = new Date(y, m - 1, d + 1);
-  const tomorrowStr = tomorrowDate.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const nextDay = new Date(Date.UTC(y, m - 1, d + 1, 10, 0, 0)); // next day 10:00 UTC = 5 AM ET
+  const endUTC = nextDay.toISOString();
 
-  const [gamesRes, favRes] = await Promise.all([
+  const [gamesRes, favRes, predsRes] = await Promise.all([
     supabase
       .from('games')
       .select(`
@@ -32,12 +36,16 @@ async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
         away_team:teams!games_away_team_id_fkey (*),
         season:seasons (*)
       `)
-      .gte('game_date_utc', today)
-      .lt('game_date_utc', tomorrowStr)
+      .gte('game_date_utc', startUTC)
+      .lt('game_date_utc', endUTC)
       .order('game_date_utc', { ascending: true }),
     supabase
       .from('user_favorite_teams')
       .select('team_id')
+      .eq('user_id', userId),
+    supabase
+      .from('game_predictions')
+      .select('game_id')
       .eq('user_id', userId),
   ]);
 
@@ -47,9 +55,14 @@ async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
     (favRes.data ?? []).map((f) => f.team_id),
   );
 
+  const predictedGameIds = new Set(
+    (predsRes.data ?? []).map((p) => p.game_id),
+  );
+
   return {
     games: (gamesRes.data ?? []) as unknown as GameWithTeams[],
     favoriteTeamIds,
+    predictedGameIds,
   };
 }
 
@@ -58,6 +71,7 @@ function formatTipoff(dateStr: string): string {
   return d.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'America/New_York',
   });
 }
 
@@ -83,7 +97,7 @@ export default function TodaysGames() {
 
   if (!data || data.games.length === 0) return null;
 
-  const { games, favoriteTeamIds } = data;
+  const { games, favoriteTeamIds, predictedGameIds } = data;
 
   return (
     <View className="pb-3">
@@ -144,6 +158,13 @@ export default function TodaysGames() {
                   </Text>
                 )}
               </View>
+
+              {/* Prediction badge */}
+              {!hasScores && predictedGameIds.has(game.id) && (
+                <View className="absolute top-1.5 right-1.5 bg-accent/20 rounded-full px-1.5 py-0.5">
+                  <Text className="text-accent text-[9px] font-bold">Predicted</Text>
+                </View>
+              )}
 
               {/* Away team */}
               <View className="flex-row items-center justify-between mb-1.5">

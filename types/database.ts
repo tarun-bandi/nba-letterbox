@@ -10,6 +10,7 @@ export type SeasonType = 'regular' | 'playoffs';
 export type GameStatus = 'scheduled' | 'live' | 'final';
 export type WatchMode = 'live' | 'replay' | 'condensed' | 'highlights';
 export type PlayoffRound = 'first_round' | 'conf_semis' | 'conf_finals' | 'finals';
+export type ReactionType = 'like' | 'fire' | 'ice' | 'skull' | 'mind_blown' | 'respect';
 
 export interface Database {
   public: {
@@ -301,14 +302,18 @@ export interface Database {
         Row: {
           user_id: string;
           log_id: string;
+          reaction_type: ReactionType;
           created_at: string;
         };
         Insert: {
           user_id: string;
           log_id: string;
+          reaction_type?: ReactionType;
           created_at?: string;
         };
-        Update: Record<string, never>;
+        Update: {
+          reaction_type?: ReactionType;
+        };
       };
       lists: {
         Row: {
@@ -501,6 +506,40 @@ export interface Database {
         };
         Update: Record<string, never>;
       };
+      game_predictions: {
+        Row: {
+          user_id: string;
+          game_id: string;
+          predicted_winner_team_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          game_id: string;
+          predicted_winner_team_id: string;
+          created_at?: string;
+        };
+        Update: {
+          predicted_winner_team_id?: string;
+        };
+      };
+      push_tokens: {
+        Row: {
+          user_id: string;
+          token: string;
+          platform: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          token: string;
+          platform: string;
+          updated_at?: string;
+        };
+        Update: {
+          updated_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -536,11 +575,16 @@ export type GameWithTeams = Game & {
   season: Season;
 };
 
+export type GamePrediction = Database['public']['Tables']['game_predictions']['Row'];
+export type PushToken = Database['public']['Tables']['push_tokens']['Row'];
+
 export type GameLogWithGame = GameLog & {
   game: GameWithTeams;
   user_profile?: UserProfile;
   like_count?: number;
   liked_by_me?: boolean;
+  reactions?: Record<ReactionType, number>;
+  my_reaction?: ReactionType | null;
   tags?: LogTag[];
   comment_count?: number;
 };

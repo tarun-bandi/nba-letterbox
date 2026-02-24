@@ -27,6 +27,10 @@ import type { GameWithTeams, GameLogWithGame, BoxScore } from '@/types/database'
 import { PageContainer } from '@/components/PageContainer';
 import { usePlayByPlay, type PlayByPlayAction } from '@/hooks/usePlayByPlay';
 
+interface PredictionTally {
+  [teamId: string]: number;
+}
+
 interface GameDetail {
   game: GameWithTeams;
   logs: GameLogWithGame[];
@@ -36,10 +40,12 @@ interface GameDetail {
   boxScores: BoxScore[];
   isBookmarked: boolean;
   playerNameMap: Record<string, string>; // player_name -> player_id
+  myPrediction: string | null; // predicted_winner_team_id
+  predictionTally: PredictionTally;
 }
 
 async function fetchGameDetail(gameId: string, userId: string): Promise<GameDetail> {
-  const [gameRes, logsRes, boxRes, watchlistRes] = await Promise.all([
+  const [gameRes, logsRes, boxRes, watchlistRes, myPredRes, allPredsRes] = await Promise.all([
     supabase
       .from('games')
       .select(`
@@ -74,6 +80,16 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
       .eq('user_id', userId)
       .eq('game_id', gameId)
       .maybeSingle(),
+    supabase
+      .from('game_predictions')
+      .select('predicted_winner_team_id')
+      .eq('user_id', userId)
+      .eq('game_id', gameId)
+      .maybeSingle(),
+    supabase
+      .from('game_predictions')
+      .select('predicted_winner_team_id')
+      .eq('game_id', gameId),
   ]);
 
   if (gameRes.error) throw gameRes.error;
@@ -127,6 +143,13 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
     }
   }
 
+  // Build prediction tally
+  const predictionTally: PredictionTally = {};
+  for (const p of allPredsRes.data ?? []) {
+    const tid = p.predicted_winner_team_id;
+    predictionTally[tid] = (predictionTally[tid] ?? 0) + 1;
+  }
+
   return {
     game: gameRes.data as unknown as GameWithTeams,
     logs,
@@ -136,6 +159,8 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
     boxScores: allBoxScores,
     isBookmarked: !!watchlistRes.data,
     playerNameMap,
+    myPrediction: myPredRes.data?.predicted_winner_team_id ?? null,
+    predictionTally,
   };
 }
 
@@ -715,6 +740,56 @@ export default function GameDetailScreen() {
     enabled: !!id && !!user,
   });
 
+  const predictionMutation = useMutation({
+    mutationFn: async (teamId: string) => {
+      if (!user) return;
+      const current = data?.myPrediction;
+      if (current === teamId) {
+        // Remove prediction
+        const { error } = await supabase
+          .from('game_predictions')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('game_id', id);
+        if (error) throw error;
+      } else {
+        // Upsert prediction
+        const { error } = await supabase
+          .from('game_predictions')
+          .upsert(
+            { user_id: user.id, game_id: id, predicted_winner_team_id: teamId },
+            { onConflict: 'user_id,game_id' },
+          );
+        if (error) throw error;
+      }
+    },
+    onMutate: async (teamId) => {
+      await queryClient.cancelQueries({ queryKey: ['game-detail', id] });
+      const prev = queryClient.getQueryData(['game-detail', id]);
+      queryClient.setQueryData(['game-detail', id], (old: any) => {
+        if (!old) return old;
+        const currentPred = old.myPrediction;
+        const tally = { ...old.predictionTally };
+        if (currentPred) {
+          tally[currentPred] = Math.max(0, (tally[currentPred] ?? 0) - 1);
+        }
+        if (currentPred === teamId) {
+          return { ...old, myPrediction: null, predictionTally: tally };
+        }
+        tally[teamId] = (tally[teamId] ?? 0) + 1;
+        return { ...old, myPrediction: teamId, predictionTally: tally };
+      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['game-detail', id], ctx.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['game-detail', id] });
+    },
+  });
+
   const sortedLogs = useMemo(() => {
     if (!data) return [];
     const logs = [...data.logs];
@@ -736,7 +811,7 @@ export default function GameDetailScreen() {
     return <ErrorState message="Failed to load game details" onRetry={refetch} />;
   }
 
-  const { game, logs, myLog, communityAvg, allRatings, boxScores, isBookmarked, playerNameMap } = data;
+  const { game, logs, myLog, communityAvg, allRatings, boxScores, isBookmarked, playerNameMap, myPrediction, predictionTally } = data;
   const gamePlayedOrLive = game.status === 'final' || game.status === 'live';
 
   return (
@@ -851,16 +926,112 @@ export default function GameDetailScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View className="mx-4 mt-4 bg-surface border border-border rounded-xl py-4 items-center">
-            <Text className="text-muted font-medium text-base">
+          <View className="mx-4 mt-4 bg-surface border border-border rounded-xl p-4">
+            <Text className="text-muted text-xs text-center mb-3">
               Tipoff at{' '}
               {new Date(game.game_date_utc).toLocaleTimeString('en-US', {
                 hour: 'numeric',
                 minute: '2-digit',
-              })}
+                timeZone: 'America/New_York',
+              })}{' '}ET
             </Text>
+            <Text className="text-white font-semibold text-center mb-3">
+              Who wins?
+            </Text>
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                className={`flex-1 items-center py-3 rounded-xl border ${
+                  myPrediction === game.away_team_id
+                    ? 'border-accent bg-accent/10'
+                    : 'border-border'
+                }`}
+                onPress={() => predictionMutation.mutate(game.away_team_id)}
+                activeOpacity={0.7}
+              >
+                <TeamLogo abbreviation={game.away_team.abbreviation} size={36} />
+                <Text className={`font-bold text-sm mt-1 ${
+                  myPrediction === game.away_team_id ? 'text-accent' : 'text-white'
+                }`}>
+                  {game.away_team.abbreviation}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={`flex-1 items-center py-3 rounded-xl border ${
+                  myPrediction === game.home_team_id
+                    ? 'border-accent bg-accent/10'
+                    : 'border-border'
+                }`}
+                onPress={() => predictionMutation.mutate(game.home_team_id)}
+                activeOpacity={0.7}
+              >
+                <TeamLogo abbreviation={game.home_team.abbreviation} size={36} />
+                <Text className={`font-bold text-sm mt-1 ${
+                  myPrediction === game.home_team_id ? 'text-accent' : 'text-white'
+                }`}>
+                  {game.home_team.abbreviation}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {/* Community prediction split */}
+            {(() => {
+              const awayCount = predictionTally[game.away_team_id] ?? 0;
+              const homeCount = predictionTally[game.home_team_id] ?? 0;
+              const total = awayCount + homeCount;
+              if (total === 0) return null;
+              const awayPct = Math.round((awayCount / total) * 100);
+              const homePct = 100 - awayPct;
+              return (
+                <View className="mt-3">
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-muted text-xs">{game.away_team.abbreviation} {awayPct}%</Text>
+                    <Text className="text-muted text-xs">{game.home_team.abbreviation} {homePct}%</Text>
+                  </View>
+                  <View className="h-2 bg-border rounded-full overflow-hidden flex-row">
+                    <View className="h-full bg-accent rounded-l-full" style={{ width: `${awayPct}%` }} />
+                  </View>
+                  <Text className="text-muted text-xs text-center mt-1">{total} prediction{total !== 1 ? 's' : ''}</Text>
+                </View>
+              );
+            })()}
           </View>
         )}
+
+        {/* Prediction result (final/live games) */}
+        {myPrediction && gamePlayedOrLive && (() => {
+          const predictedTeam = myPrediction === game.home_team_id
+            ? game.home_team
+            : game.away_team;
+          const isCorrect = game.status === 'final' && (() => {
+            const homeWon = (game.home_team_score ?? 0) > (game.away_team_score ?? 0);
+            return myPrediction === (homeWon ? game.home_team_id : game.away_team_id);
+          })();
+          const awayCount = predictionTally[game.away_team_id] ?? 0;
+          const homeCount = predictionTally[game.home_team_id] ?? 0;
+          const total = awayCount + homeCount;
+          return (
+            <View className="mx-4 mt-3 bg-surface border border-border rounded-xl p-3 flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2">
+                <TeamLogo abbreviation={predictedTeam.abbreviation} size={20} />
+                <Text className="text-white text-sm">
+                  You predicted {predictedTeam.abbreviation}
+                </Text>
+                {game.status === 'final' && (
+                  <Text className={`font-bold text-sm ${isCorrect ? 'text-green-500' : 'text-accent-red'}`}>
+                    {isCorrect ? '\u2713' : '\u2717'}
+                  </Text>
+                )}
+                {game.status === 'live' && (
+                  <Text className="text-muted text-xs">(locked)</Text>
+                )}
+              </View>
+              {total > 0 && (
+                <Text className="text-muted text-xs">
+                  {Math.round(((predictionTally[myPrediction] ?? 0) / total) * 100)}% picked
+                </Text>
+              )}
+            </View>
+          );
+        })()}
 
         {/* Watch Highlights */}
         {game.status === 'final' && (

@@ -13,7 +13,8 @@ import { Heart, MessageCircle, UserPlus } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import Avatar from '@/components/Avatar';
-import type { UserProfile } from '@/types/database';
+import { REACTION_EMOJI } from '@/components/ReactionPicker';
+import type { UserProfile, ReactionType } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
 
 type NotificationType = 'like' | 'comment' | 'follow';
@@ -25,6 +26,8 @@ interface Notification {
   created_at: string;
   /** game_id for like/comment notifications */
   gameId?: string;
+  /** reaction type for like notifications */
+  reactionType?: ReactionType;
 }
 
 async function fetchNotifications(userId: string): Promise<Notification[]> {
@@ -45,7 +48,7 @@ async function fetchNotifications(userId: string): Promise<Notification[]> {
     logIds.length > 0
       ? supabase
           .from('likes')
-          .select('user_id, log_id, created_at')
+          .select('user_id, log_id, reaction_type, created_at')
           .in('log_id', logIds)
           .neq('user_id', userId)
           .order('created_at', { ascending: false })
@@ -97,6 +100,7 @@ async function fetchNotifications(userId: string): Promise<Notification[]> {
       actor,
       created_at: l.created_at,
       gameId: logGameMap[l.log_id],
+      reactionType: (l as any).reaction_type as ReactionType | undefined,
     });
   }
 
@@ -150,10 +154,17 @@ const ICON_MAP = {
 };
 
 const MESSAGE_MAP: Record<NotificationType, string> = {
-  like: 'liked your log',
+  like: 'reacted to your log',
   comment: 'commented on your log',
   follow: 'started following you',
 };
+
+function getNotificationMessage(item: Notification): string {
+  if (item.type === 'like' && item.reactionType && item.reactionType !== 'like') {
+    return `reacted ${REACTION_EMOJI[item.reactionType]} to your log`;
+  }
+  return MESSAGE_MAP[item.type];
+}
 
 export default function NotificationsScreen() {
   const { user } = useAuthStore();
@@ -217,7 +228,7 @@ export default function NotificationsScreen() {
               <View className="flex-1">
                 <Text className="text-white text-sm">
                   <Text className="font-semibold">{item.actor.display_name}</Text>
-                  {' '}{MESSAGE_MAP[item.type]}
+                  {' '}{getNotificationMessage(item)}
                 </Text>
                 <Text className="text-muted text-xs mt-0.5">
                   {timeAgo(item.created_at)}

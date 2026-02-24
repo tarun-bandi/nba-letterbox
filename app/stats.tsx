@@ -19,6 +19,7 @@ interface StatsData {
   mostWatchedTeams: { abbreviation: string; count: number }[];
   loggingStreak: number;
   teamsCoverage: number;
+  predictionAccuracy: { correct: number; total: number } | null;
 }
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -162,6 +163,26 @@ async function fetchStats(userId: string): Promise<StatsData> {
   }
   const favoriteWatchMode = Object.entries(modeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] as WatchMode | undefined ?? null;
 
+  // Prediction accuracy
+  let predictionAccuracy: { correct: number; total: number } | null = null;
+  const { data: predictions } = await supabase
+    .from('game_predictions')
+    .select('game_id, predicted_winner_team_id, game:games (home_team_id, away_team_id, home_team_score, away_team_score, status)')
+    .eq('user_id', userId);
+
+  if (predictions && predictions.length > 0) {
+    let correct = 0;
+    let total = 0;
+    for (const p of predictions as any[]) {
+      if (!p.game || p.game.status !== 'final') continue;
+      total++;
+      const homeWon = (p.game.home_team_score ?? 0) > (p.game.away_team_score ?? 0);
+      const winnerId = homeWon ? p.game.home_team_id : p.game.away_team_id;
+      if (p.predicted_winner_team_id === winnerId) correct++;
+    }
+    if (total > 0) predictionAccuracy = { correct, total };
+  }
+
   return {
     totalGames,
     avgRating,
@@ -172,6 +193,7 @@ async function fetchStats(userId: string): Promise<StatsData> {
     mostWatchedTeams,
     loggingStreak: streak,
     teamsCoverage,
+    predictionAccuracy,
   };
 }
 
@@ -244,6 +266,23 @@ export default function StatsScreen() {
           />
         </View>
       </View>
+
+      {/* Prediction Accuracy */}
+      {data.predictionAccuracy && (
+        <View className="px-4 mb-4">
+          <View className="flex-row gap-3">
+            <View className="flex-1 bg-surface border border-border rounded-xl p-4 items-center">
+              <Text className="text-accent text-2xl font-bold">
+                {Math.round((data.predictionAccuracy.correct / data.predictionAccuracy.total) * 100)}%
+              </Text>
+              <Text className="text-muted text-xs mt-1">Prediction Accuracy</Text>
+              <Text className="text-muted text-xs">
+                {data.predictionAccuracy.correct}/{data.predictionAccuracy.total} correct
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Logging Streak & Teams Coverage */}
       <View className="px-4 flex-row gap-3 mb-4">

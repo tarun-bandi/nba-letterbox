@@ -239,7 +239,7 @@ async function seedGames(season: number, days: number | null = null) {
           away_team_id: awayTeamId,
           home_team_score: g.home_team_score || null,
           away_team_score: g.visitor_team_score || null,
-          game_date_utc: new Date(g.date).toISOString(),
+          game_date_utc: (g as any).datetime ? new Date((g as any).datetime).toISOString() : new Date(g.date).toISOString(),
           status: mapStatus(g.status),
           period: g.period || null,
           time: g.time || null,
