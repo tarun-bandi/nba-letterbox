@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
+import { useLiveScores } from '@/hooks/useLiveScores';
 import TeamLogo from './TeamLogo';
 import type { GameWithTeams } from '@/types/database';
 
@@ -76,12 +77,9 @@ export default function TodaysGames() {
     queryKey: ['todays-games', getTodayDateStr()],
     queryFn: () => fetchTodaysGames(user!.id),
     enabled: !!user,
-    refetchInterval: (query) => {
-      const games = query.state.data?.games ?? [];
-      const hasLive = games.some((g) => g.status === 'live');
-      return hasLive ? 60000 : false;
-    },
   });
+
+  const { data: liveStatusMap } = useLiveScores(data?.games);
 
   if (!data || data.games.length === 0) return null;
 
@@ -133,7 +131,7 @@ export default function TodaysGames() {
                   <View className="flex-row items-center gap-1">
                     <View className="w-2 h-2 rounded-full bg-accent-red" />
                     <Text className="text-accent-red text-xs font-bold">
-                      In Progress
+                      {liveStatusMap?.get(game.provider_game_id) ?? 'In Progress'}
                     </Text>
                   </View>
                 ) : isFinal ? (
