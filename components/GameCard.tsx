@@ -1,8 +1,9 @@
-import { View, Text, TouchableOpacity, Share as RNShare, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Share as RNShare, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState, useCallback, memo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Heart, MessageCircle, Share2 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -359,6 +360,32 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
             </Text>
           )
         ) : null}
+
+        {/* Images */}
+        {log.image_urls && log.image_urls.length > 0 && (
+          log.image_urls.length === 1 ? (
+            <Image
+              source={{ uri: log.image_urls[0] }}
+              style={{ width: '100%', height: 160, borderRadius: 10, marginTop: 12 }}
+              contentFit="cover"
+            />
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, marginTop: 12 }}
+            >
+              {log.image_urls.map((url) => (
+                <Image
+                  key={url}
+                  source={{ uri: url }}
+                  style={{ width: 200, height: 160, borderRadius: 10 }}
+                  contentFit="cover"
+                />
+              ))}
+            </ScrollView>
+          )
+        )}
 
         {/* Actions: share + comments + reactions */}
         <View className="flex-row items-center justify-end gap-4 mt-3 pt-2 border-t border-border">

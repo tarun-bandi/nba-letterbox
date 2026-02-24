@@ -279,6 +279,7 @@ export interface Database {
           position: number | null;
           sentiment: Sentiment | null;
           fan_of: FanOf | null;
+          image_urls: string[] | null;
           logged_at: string;
           updated_at: string;
         };
@@ -293,6 +294,7 @@ export interface Database {
           position?: number | null;
           sentiment?: Sentiment | null;
           fan_of?: FanOf | null;
+          image_urls?: string[] | null;
           logged_at?: string;
           updated_at?: string;
         };
@@ -304,6 +306,7 @@ export interface Database {
           position?: number | null;
           sentiment?: Sentiment | null;
           fan_of?: FanOf | null;
+          image_urls?: string[] | null;
           updated_at?: string;
         };
       };
