@@ -30,8 +30,8 @@ async function fetchFeedPage(
   userId: string,
   offset: number,
 ): Promise<FeedPage> {
-  // 1. Get followed user IDs + favorite team IDs in parallel
-  const [followsRes, favTeamsRes] = await Promise.all([
+  // 1. Get followed user IDs, favorite team IDs, and enabled sports in parallel
+  const [followsRes, favTeamsRes, profileRes] = await Promise.all([
     supabase
       .from('follows')
       .select('following_id')
@@ -40,22 +40,28 @@ async function fetchFeedPage(
       .from('user_favorite_teams')
       .select('team_id')
       .eq('user_id', userId),
+    supabase
+      .from('user_profiles')
+      .select('enabled_sports')
+      .eq('user_id', userId)
+      .single(),
   ]);
 
   if (followsRes.error) throw followsRes.error;
 
   const followedIds = (followsRes.data ?? []).map((f) => f.following_id);
   const favoriteTeamIds = (favTeamsRes.data ?? []).map((f) => f.team_id);
+  const enabledSports = (profileRes.data?.enabled_sports as string[]) ?? ['nba'];
   const userIds = [userId, ...followedIds];
 
   if (userIds.length === 0) return { logs: [], nextOffset: null, favoriteTeamIds };
 
-  // 2. Fetch logs with game + team details
-  const { data, error } = await supabase
+  // 2. Fetch logs with game + team details, filtered by enabled sports
+  let query = supabase
     .from('game_logs')
     .select(`
       *,
-      game:games (
+      game:games!inner (
         *,
         home_team:teams!games_home_team_id_fkey (*),
         away_team:teams!games_away_team_id_fkey (*),
@@ -63,8 +69,11 @@ async function fetchFeedPage(
       )
     `)
     .in('user_id', userIds)
+    .in('game.sport', enabledSports)
     .order('logged_at', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
+
+  const { data, error } = await query;
 
   if (error) throw error;
 

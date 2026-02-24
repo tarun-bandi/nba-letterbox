@@ -237,7 +237,7 @@ export default function PlayerDetailScreen() {
             </View>
             {team && (
               <View className="flex-row items-center gap-2 mt-2">
-                <TeamLogo abbreviation={team.abbreviation} size={22} />
+                <TeamLogo abbreviation={team.abbreviation} sport={team.sport ?? 'nba'} size={22} />
                 <Text className="text-white text-sm font-medium">
                   {team.full_name}
                 </Text>
@@ -347,7 +347,7 @@ export default function PlayerDetailScreen() {
                 <View className="flex-row justify-between items-center">
                   <View className="flex-row items-center gap-2">
                     <Text className="text-muted text-xs">{prefix}</Text>
-                    <TeamLogo abbreviation={opponent.abbreviation} size={18} />
+                    <TeamLogo abbreviation={opponent.abbreviation} sport={opponent.sport ?? 'nba'} size={18} />
                     <Text className="text-white font-medium text-sm">
                       {opponent.abbreviation}
                     </Text>

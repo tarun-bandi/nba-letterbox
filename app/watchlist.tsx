@@ -101,17 +101,17 @@ export default function WatchlistScreen() {
           >
             <View className="flex-row justify-between items-center">
               <View className="flex-row items-center gap-2 flex-1">
-                <TeamLogo abbreviation={item.game.away_team.abbreviation} size={24} />
+                <TeamLogo abbreviation={item.game.away_team.abbreviation} sport={item.game.sport ?? 'nba'} size={24} />
                 <Text className="text-white font-semibold text-base">
                   {item.game.away_team.abbreviation}
                 </Text>
                 <Text className="text-muted font-semibold text-base">@</Text>
-                <TeamLogo abbreviation={item.game.home_team.abbreviation} size={24} />
+                <TeamLogo abbreviation={item.game.home_team.abbreviation} sport={item.game.sport ?? 'nba'} size={24} />
                 <Text className="text-white font-semibold text-base">
                   {item.game.home_team.abbreviation}
                 </Text>
                 {item.game.playoff_round && (
-                  <PlayoffBadge round={item.game.playoff_round} />
+                  <PlayoffBadge round={item.game.playoff_round} sport={item.game.sport ?? 'nba'} />
                 )}
               </View>
               <View className="flex-row items-center gap-3">

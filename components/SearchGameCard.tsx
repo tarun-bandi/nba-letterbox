@@ -39,7 +39,7 @@ export default function SearchGameCard({ game, isLogged, onPress }: SearchGameCa
               <Text className="text-muted text-xs font-medium">OT</Text>
             </View>
           )}
-          {game.playoff_round && <PlayoffBadge round={game.playoff_round} />}
+          {game.playoff_round && <PlayoffBadge round={game.playoff_round} sport={game.sport ?? 'nba'} />}
           {isLogged && (
             <View className="bg-accent/20 border border-accent/40 rounded-full px-2 py-0.5">
               <Text className="text-accent text-xs font-medium">Logged</Text>
@@ -51,7 +51,7 @@ export default function SearchGameCard({ game, isLogged, onPress }: SearchGameCa
       {/* Away team row */}
       <View className="flex-row items-center justify-between mb-2">
         <View className="flex-row items-center gap-2">
-          <TeamLogo abbreviation={game.away_team.abbreviation} size={24} />
+          <TeamLogo abbreviation={game.away_team.abbreviation} sport={game.sport ?? 'nba'} size={24} />
           <Text
             className={`text-sm font-medium ${
               awayWon ? 'text-white font-bold' : 'text-muted'
@@ -74,7 +74,7 @@ export default function SearchGameCard({ game, isLogged, onPress }: SearchGameCa
       {/* Home team row */}
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
-          <TeamLogo abbreviation={game.home_team.abbreviation} size={24} />
+          <TeamLogo abbreviation={game.home_team.abbreviation} sport={game.sport ?? 'nba'} size={24} />
           <Text
             className={`text-sm font-medium ${
               homeWon ? 'text-white font-bold' : 'text-muted'

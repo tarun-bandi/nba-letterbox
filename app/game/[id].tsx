@@ -14,6 +14,8 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
+import { getProvider } from '@/lib/providers';
+import type { BoxScoreColumnDef, TeamComparisonStatDef } from '@/lib/providers';
 import { List, Play, Bookmark } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import GameCard from '@/components/GameCard';
@@ -23,7 +25,7 @@ import AddToListModal from '@/components/AddToListModal';
 import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
 import RatingHistogram from '@/components/RatingHistogram';
-import type { GameWithTeams, GameLogWithGame, BoxScore } from '@/types/database';
+import type { GameWithTeams, GameLogWithGame, BoxScore, Sport, PeriodScores } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
 import { usePlayByPlay, type PlayByPlayAction } from '@/hooks/usePlayByPlay';
 
@@ -35,7 +37,7 @@ interface GameDetail {
   allRatings: number[];
   boxScores: BoxScore[];
   isBookmarked: boolean;
-  playerNameMap: Record<string, string>; // player_name -> player_id
+  playerNameMap: Record<string, string>;
 }
 
 async function fetchGameDetail(gameId: string, userId: string): Promise<GameDetail> {
@@ -81,7 +83,6 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
 
   const rawLogs = (logsRes.data ?? []) as unknown as GameLogWithGame[];
 
-  // Fetch user profiles separately (no direct FK from game_logs to user_profiles)
   const userIds = [...new Set(rawLogs.map((l) => l.user_id))];
   let profileMap: Record<string, any> = {};
   if (userIds.length > 0) {
@@ -109,7 +110,6 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
 
   const allBoxScores = (boxRes.data ?? []) as BoxScore[];
 
-  // Build player name → id map from players table
   const playerNames = [...new Set(allBoxScores.map((b) => b.player_name))];
   const playerNameMap: Record<string, string> = {};
   if (playerNames.length > 0) {
@@ -148,57 +148,61 @@ function formatDate(dateStr: string) {
   });
 }
 
-type SortKey = 'points' | 'rebounds' | 'assists' | 'steals' | 'blocks' | 'turnovers' | 'minutes' | 'plus_minus' | 'fgm' | 'tpm' | 'ftm';
+// ─── Generic stat value helpers ─────────────────────────────────────────────
 
-const STAT_COLUMNS: { key: SortKey; label: string; width: number }[] = [
-  { key: 'minutes', label: 'MIN', width: 48 },
-  { key: 'points', label: 'PTS', width: 40 },
-  { key: 'rebounds', label: 'REB', width: 40 },
-  { key: 'assists', label: 'AST', width: 40 },
-  { key: 'steals', label: 'STL', width: 40 },
-  { key: 'blocks', label: 'BLK', width: 40 },
-  { key: 'turnovers', label: 'TO', width: 36 },
-  { key: 'fgm', label: 'FG', width: 56 },
-  { key: 'tpm', label: '3PT', width: 52 },
-  { key: 'ftm', label: 'FT', width: 48 },
-  { key: 'plus_minus', label: '+/-', width: 40 },
-];
+function getBoxStatValue(player: BoxScore, col: BoxScoreColumnDef): string {
+  const stats = player.stats ?? {};
+  // For NBA, fall back to typed columns for backwards compatibility
+  const get = (key: string): any => stats[key] ?? (player as any)[key];
 
-function formatFraction(made: number | null, attempted: number | null) {
-  if (made == null || attempted == null) return '-';
-  return `${made}-${attempted}`;
-}
-
-function getStatValue(player: BoxScore, key: SortKey): string {
-  if (key === 'fgm') return formatFraction(player.fgm, player.fga);
-  if (key === 'tpm') return formatFraction(player.tpm, player.tpa);
-  if (key === 'ftm') return formatFraction(player.ftm, player.fta);
-  if (key === 'minutes') return player.minutes ?? '-';
-  if (key === 'plus_minus') {
-    const v = player.plus_minus;
+  if (col.format === 'fraction' && col.fractionKeys) {
+    const made = get(col.fractionKeys.made);
+    const attempted = get(col.fractionKeys.attempted);
+    if (made == null || attempted == null) return '-';
+    return `${made}-${attempted}`;
+  }
+  if (col.format === 'plusMinus') {
+    const v = get(col.key);
     if (v == null) return '-';
     return v > 0 ? `+${v}` : `${v}`;
   }
-  const val = player[key];
+  if (col.format === 'string') {
+    return get(col.key) ?? '-';
+  }
+  const val = get(col.key);
   return val != null ? String(val) : '-';
 }
 
-function getSortNumber(player: BoxScore, key: SortKey): number {
-  if (key === 'minutes') {
-    const m = player.minutes;
+function getBoxSortNumber(player: BoxScore, col: BoxScoreColumnDef): number {
+  const stats = player.stats ?? {};
+  const get = (key: string): any => stats[key] ?? (player as any)[key];
+
+  if (col.format === 'string' && col.key === 'minutes') {
+    const m = get('minutes');
     if (!m) return -1;
-    const parts = m.split(':');
+    const parts = String(m).split(':');
     return parseInt(parts[0]) * 60 + (parseInt(parts[1]) || 0);
   }
-  const val = player[key];
+  const val = get(col.key);
   return typeof val === 'number' ? val : -1;
 }
 
+// ─── BoxScoreSection ────────────────────────────────────────────────────────
+
 function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxScore[]; game: GameWithTeams; playerNameMap: Record<string, string> }) {
   const router = useRouter();
+  const sport: Sport = game.sport ?? 'nba';
+  const columns = getProvider(sport).getBoxScoreColumns();
   const [activeTeamId, setActiveTeamId] = useState(game.away_team_id);
-  const [sortKey, setSortKey] = useState<SortKey>('points');
+  const [sortColIdx, setSortColIdx] = useState(() => {
+    // Default sort: 'points' for NBA, 'passing_yds' for NFL, fallback to first
+    const defaultKey = sport === 'nba' ? 'points' : 'passing_yds';
+    const idx = columns.findIndex((c) => c.key === defaultKey);
+    return idx >= 0 ? idx : 0;
+  });
   const [sortAsc, setSortAsc] = useState(false);
+
+  const sortCol = columns[sortColIdx];
 
   const teamPlayers = useMemo(() => {
     const filtered = boxScores.filter((b) => b.team_id === activeTeamId);
@@ -206,8 +210,8 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
     const bench = filtered.filter((b) => !b.starter);
 
     const sortFn = (a: BoxScore, b: BoxScore) => {
-      const aVal = getSortNumber(a, sortKey);
-      const bVal = getSortNumber(b, sortKey);
+      const aVal = getBoxSortNumber(a, sortCol);
+      const bVal = getBoxSortNumber(b, sortCol);
       return sortAsc ? aVal - bVal : bVal - aVal;
     };
 
@@ -215,7 +219,7 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
       starters: starters.sort(sortFn),
       bench: bench.sort(sortFn),
     };
-  }, [boxScores, activeTeamId, sortKey, sortAsc]);
+  }, [boxScores, activeTeamId, sortCol, sortAsc]);
 
   if (boxScores.length === 0) {
     return (
@@ -225,11 +229,11 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
     );
   }
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
+  const handleSort = (idx: number) => {
+    if (sortColIdx === idx) {
       setSortAsc(!sortAsc);
     } else {
-      setSortKey(key);
+      setSortColIdx(idx);
       setSortAsc(false);
     }
   };
@@ -249,10 +253,10 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
           {player.player_name}
         </Text>
       </NameWrapper>
-      {STAT_COLUMNS.map((col) => (
+      {columns.map((col, idx) => (
         <View key={col.key} style={{ width: col.width }} className="items-center">
-          <Text className={`text-xs ${col.key === sortKey ? 'text-accent font-semibold' : 'text-muted'}`}>
-            {getStatValue(player, col.key)}
+          <Text className={`text-xs ${idx === sortColIdx ? 'text-accent font-semibold' : 'text-muted'}`}>
+            {getBoxStatValue(player, col)}
           </Text>
         </View>
       ))}
@@ -294,21 +298,21 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
             <View className="w-28 pr-2">
               <Text className="text-muted text-xs font-semibold">Player</Text>
             </View>
-            {STAT_COLUMNS.map((col) => (
+            {columns.map((col, idx) => (
               <TouchableOpacity
                 key={col.key}
                 style={{ width: col.width }}
                 className="items-center"
-                onPress={() => handleSort(col.key)}
+                onPress={() => handleSort(idx)}
                 activeOpacity={0.6}
               >
                 <Text
                   className={`text-xs font-semibold ${
-                    sortKey === col.key ? 'text-accent' : 'text-muted'
+                    sortColIdx === idx ? 'text-accent' : 'text-muted'
                   }`}
                 >
                   {col.label}
-                  {sortKey === col.key ? (sortAsc ? ' ↑' : ' ↓') : ''}
+                  {sortColIdx === idx ? (sortAsc ? ' \u2191' : ' \u2193') : ''}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -334,24 +338,34 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
   );
 }
 
-function QuarterScoreTable({ game }: { game: GameWithTeams }) {
-  if (game.home_q1 == null) return null;
+// ─── PeriodScoreTable ───────────────────────────────────────────────────────
 
-  const hasOT = game.home_ot != null || game.away_ot != null;
+function PeriodScoreTable({ game }: { game: GameWithTeams }) {
+  const sport: Sport = game.sport ?? 'nba';
+  const provider = getProvider(sport);
+  const periodLabels = provider.getPeriodLabels();
+
+  // Use period_scores JSONB if available, otherwise fall back to individual columns
+  const ps: PeriodScores | null = game.period_scores ?? buildPeriodScoresFromColumns(game);
+  if (!ps) return null;
+
+  const hasOT = ps.ot && ps.ot.length > 0;
 
   return (
     <View className="bg-surface border border-border mx-4 mt-4 rounded-2xl p-4">
       {/* Header */}
       <View className="flex-row mb-2">
         <View className="w-14" />
-        {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
+        {periodLabels.map((q) => (
           <Text key={q} className="text-muted text-xs font-semibold w-10 text-center">
             {q}
           </Text>
         ))}
-        {hasOT && (
-          <Text className="text-muted text-xs font-semibold w-10 text-center">OT</Text>
-        )}
+        {hasOT && ps.ot.map((_, i) => (
+          <Text key={`ot-${i}`} className="text-muted text-xs font-semibold w-10 text-center">
+            {ps.ot.length === 1 ? 'OT' : `OT${i + 1}`}
+          </Text>
+        ))}
         <Text className="text-muted text-xs font-semibold flex-1 text-center">Final</Text>
       </View>
 
@@ -360,12 +374,12 @@ function QuarterScoreTable({ game }: { game: GameWithTeams }) {
         <Text className="text-white font-bold text-sm w-14">
           {game.away_team.abbreviation}
         </Text>
-        {[game.away_q1, game.away_q2, game.away_q3, game.away_q4].map((s, i) => (
+        {ps.away.map((s, i) => (
           <Text key={i} className="text-white text-sm w-10 text-center">{s ?? '-'}</Text>
         ))}
-        {hasOT && (
-          <Text className="text-white text-sm w-10 text-center">{game.away_ot ?? '-'}</Text>
-        )}
+        {hasOT && ps.ot.map((ot, i) => (
+          <Text key={`ot-${i}`} className="text-white text-sm w-10 text-center">{ot.away ?? '-'}</Text>
+        ))}
         <Text className="text-accent font-bold text-sm flex-1 text-center">
           {game.away_team_score}
         </Text>
@@ -376,12 +390,12 @@ function QuarterScoreTable({ game }: { game: GameWithTeams }) {
         <Text className="text-white font-bold text-sm w-14">
           {game.home_team.abbreviation}
         </Text>
-        {[game.home_q1, game.home_q2, game.home_q3, game.home_q4].map((s, i) => (
+        {ps.home.map((s, i) => (
           <Text key={i} className="text-white text-sm w-10 text-center">{s ?? '-'}</Text>
         ))}
-        {hasOT && (
-          <Text className="text-white text-sm w-10 text-center">{game.home_ot ?? '-'}</Text>
-        )}
+        {hasOT && ps.ot.map((ot, i) => (
+          <Text key={`ot-${i}`} className="text-white text-sm w-10 text-center">{ot.home ?? '-'}</Text>
+        ))}
         <Text className="text-accent font-bold text-sm flex-1 text-center">
           {game.home_team_score}
         </Text>
@@ -390,40 +404,66 @@ function QuarterScoreTable({ game }: { game: GameWithTeams }) {
   );
 }
 
+/** Build PeriodScores from legacy home_q1..home_ot columns */
+function buildPeriodScoresFromColumns(game: GameWithTeams): PeriodScores | null {
+  if (game.home_q1 == null) return null;
+  const ot: { home: number; away: number }[] = [];
+  if (game.home_ot != null || game.away_ot != null) {
+    ot.push({ home: game.home_ot ?? 0, away: game.away_ot ?? 0 });
+  }
+  return {
+    home: [game.home_q1 ?? 0, game.home_q2 ?? 0, game.home_q3 ?? 0, game.home_q4 ?? 0],
+    away: [game.away_q1 ?? 0, game.away_q2 ?? 0, game.away_q3 ?? 0, game.away_q4 ?? 0],
+    ot,
+  };
+}
+
+// ─── TeamComparisonStats ────────────────────────────────────────────────────
+
 function TeamComparisonStats({ boxScores, game }: { boxScores: BoxScore[]; game: GameWithTeams }) {
+  const sport: Sport = game.sport ?? 'nba';
+  const provider = getProvider(sport);
+  const statDefs = provider.getTeamComparisonStats();
+
   const awayPlayers = boxScores.filter((b) => b.team_id === game.away_team_id);
   const homePlayers = boxScores.filter((b) => b.team_id === game.home_team_id);
 
   if (awayPlayers.length === 0 && homePlayers.length === 0) return null;
 
-  const sum = (players: BoxScore[], key: keyof BoxScore) =>
-    players.reduce((acc, p) => acc + ((p[key] as number) ?? 0), 0);
+  const sum = (players: BoxScore[], key: string) =>
+    players.reduce((acc, p) => {
+      const val = (p.stats ?? {})[key] ?? (p as any)[key];
+      return acc + ((typeof val === 'number' ? val : 0));
+    }, 0);
 
   const pct = (made: number, attempted: number) =>
     attempted > 0 ? ((made / attempted) * 100).toFixed(1) + '%' : '-';
 
-  const awayFgm = sum(awayPlayers, 'fgm');
-  const awayFga = sum(awayPlayers, 'fga');
-  const homeFgm = sum(homePlayers, 'fgm');
-  const homeFga = sum(homePlayers, 'fga');
-  const awayTpm = sum(awayPlayers, 'tpm');
-  const awayTpa = sum(awayPlayers, 'tpa');
-  const homeTpm = sum(homePlayers, 'tpm');
-  const homeTpa = sum(homePlayers, 'tpa');
-
-  const stats = [
-    { label: 'Total Rebounds', away: sum(awayPlayers, 'rebounds'), home: sum(homePlayers, 'rebounds') },
-    { label: 'Assists', away: sum(awayPlayers, 'assists'), home: sum(homePlayers, 'assists') },
-    { label: 'Steals', away: sum(awayPlayers, 'steals'), home: sum(homePlayers, 'steals') },
-    { label: 'Blocks', away: sum(awayPlayers, 'blocks'), home: sum(homePlayers, 'blocks') },
-    { label: 'Turnovers', away: sum(awayPlayers, 'turnovers'), home: sum(homePlayers, 'turnovers') },
-    { label: 'FG%', away: pct(awayFgm, awayFga), home: pct(homeFgm, homeFga), isString: true },
-    { label: '3P%', away: pct(awayTpm, awayTpa), home: pct(homeTpm, homeTpa), isString: true },
-  ];
+  const stats = statDefs.map((def) => {
+    if (def.pctKeys) {
+      const awayMade = sum(awayPlayers, def.pctKeys.made);
+      const awayAtt = sum(awayPlayers, def.pctKeys.attempted);
+      const homeMade = sum(homePlayers, def.pctKeys.made);
+      const homeAtt = sum(homePlayers, def.pctKeys.attempted);
+      return {
+        label: def.label,
+        away: pct(awayMade, awayAtt),
+        home: pct(homeMade, homeAtt),
+        isString: true,
+        lowerIsBetter: false,
+      };
+    }
+    return {
+      label: def.label,
+      away: sum(awayPlayers, def.key),
+      home: sum(homePlayers, def.key),
+      isString: false,
+      lowerIsBetter: def.lowerIsBetter ?? false,
+    };
+  });
 
   return (
     <View className="mx-4 mt-4 bg-surface border border-border rounded-2xl p-4">
-      {/* Header */}
       <View className="flex-row items-center justify-between mb-3">
         <Text className="text-accent font-bold text-sm w-16 text-center">
           {game.away_team.abbreviation}
@@ -434,23 +474,19 @@ function TeamComparisonStats({ boxScores, game }: { boxScores: BoxScore[]; game:
         </Text>
       </View>
       {stats.map((stat) => {
-        const awayVal = stat.isString ? stat.away : stat.away;
-        const homeVal = stat.isString ? stat.home : stat.home;
         const awayHigher = !stat.isString && (stat.away as number) > (stat.home as number);
         const homeHigher = !stat.isString && (stat.home as number) > (stat.away as number);
-        // For turnovers, lower is better
-        const isTurnovers = stat.label === 'Turnovers';
-        const awayBold = isTurnovers ? homeHigher : awayHigher;
-        const homeBold = isTurnovers ? awayHigher : homeHigher;
+        const awayBold = stat.lowerIsBetter ? homeHigher : awayHigher;
+        const homeBold = stat.lowerIsBetter ? awayHigher : homeHigher;
 
         return (
           <View key={stat.label} className="flex-row items-center justify-between py-1.5 border-t border-border">
             <Text className={`text-sm w-16 text-center ${awayBold ? 'text-white font-bold' : 'text-muted'}`}>
-              {String(awayVal)}
+              {String(stat.away)}
             </Text>
             <Text className="text-muted text-xs flex-1 text-center">{stat.label}</Text>
             <Text className={`text-sm w-16 text-center ${homeBold ? 'text-white font-bold' : 'text-muted'}`}>
-              {String(homeVal)}
+              {String(stat.home)}
             </Text>
           </View>
         );
@@ -459,10 +495,14 @@ function TeamComparisonStats({ boxScores, game }: { boxScores: BoxScore[]; game:
   );
 }
 
+// ─── DetailsSection ─────────────────────────────────────────────────────────
+
 function DetailsSection({ game }: { game: GameWithTeams }) {
+  const sport: Sport = game.sport ?? 'nba';
   const details: { label: string; value: string }[] = [];
 
   details.push({ label: 'Date', value: formatDate(game.game_date_utc) });
+  details.push({ label: 'Sport', value: sport.toUpperCase() });
 
   if (game.arena) details.push({ label: 'Arena', value: game.arena });
   if (game.attendance) details.push({ label: 'Attendance', value: game.attendance.toLocaleString() });
@@ -474,7 +514,10 @@ function DetailsSection({ game }: { game: GameWithTeams }) {
   }
 
   if (game.postseason) details.push({ label: 'Type', value: 'Playoffs' });
-  if (game.playoff_round) details.push({ label: 'Round', value: game.playoff_round.replace(/_/g, ' ') });
+  if (game.playoff_round) {
+    const label = getProvider(sport).getPlayoffRoundLabel(game.playoff_round);
+    details.push({ label: 'Round', value: label });
+  }
 
   return (
     <View className="mx-4 mt-4 bg-surface border border-border rounded-2xl p-4">
@@ -488,39 +531,40 @@ function DetailsSection({ game }: { game: GameWithTeams }) {
   );
 }
 
+// ─── Highlights ─────────────────────────────────────────────────────────────
+
 function getHighlightsUrl(game: GameWithTeams): string {
   if (game.highlights_url) return game.highlights_url;
   const d = new Date(game.game_date_utc);
   const month = d.toLocaleString('en-US', { month: 'short' });
   const day = d.getDate();
   const year = d.getFullYear();
-  const query = `NBA+${game.away_team.abbreviation}+vs+${game.home_team.abbreviation}+${month}+${day}+${year}+highlights`;
+  const sportLabel = (game.sport ?? 'nba').toUpperCase();
+  const query = `${sportLabel}+${game.away_team.abbreviation}+vs+${game.home_team.abbreviation}+${month}+${day}+${year}+highlights`;
   return `https://www.youtube.com/results?search_query=${query}`;
 }
 
-function PlayByPlaySection({
-  game,
-}: {
-  game: GameWithTeams;
-}) {
+// ─── PlayByPlaySection ──────────────────────────────────────────────────────
+
+function PlayByPlaySection({ game }: { game: GameWithTeams }) {
+  const sport: Sport = game.sport ?? 'nba';
   const gameDate = game.game_date_utc?.slice(0, 10);
   const { data, isLoading, error } = usePlayByPlay(
     game.home_team.abbreviation,
     gameDate,
     game.status,
+    sport,
   );
 
   const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
 
   const actions = data?.actions ?? [];
 
-  // Determine available periods
   const periods = useMemo(() => {
     const set = new Set(actions.map((a) => a.period));
     return Array.from(set).sort((a, b) => a - b);
   }, [actions]);
 
-  // Default to latest period for live games (on first load)
   const activePeriod = selectedPeriod;
 
   const filteredActions = useMemo(() => {
@@ -528,7 +572,6 @@ function PlayByPlaySection({
     return actions.filter((a) => a.period === activePeriod);
   }, [actions, activePeriod]);
 
-  // Reverse so most recent plays show first
   const displayActions = useMemo(
     () => [...filteredActions].reverse(),
     [filteredActions],
@@ -624,7 +667,6 @@ function PlayByPlaySection({
             isScoringPlay(action) ? 'bg-surface rounded-lg px-2 -mx-2' : ''
           }`}
         >
-          {/* Left: team + clock */}
           <View className="w-20 flex-row items-start gap-1.5">
             {action.teamTricode ? (
               <View className="bg-surface rounded px-1.5 py-0.5">
@@ -638,7 +680,6 @@ function PlayByPlaySection({
             <Text className="text-muted text-xs mt-0.5">{action.clock}</Text>
           </View>
 
-          {/* Right: description + score */}
           <View className="flex-1 ml-2">
             <Text className="text-white text-sm">{action.description}</Text>
             {isScoringPlay(action) && (
@@ -653,6 +694,8 @@ function PlayByPlaySection({
     </View>
   );
 }
+
+// ─── Main Screen ────────────────────────────────────────────────────────────
 
 type GameTab = 'box_score' | 'reviews' | 'stats' | 'plays' | 'details';
 const TABS: { key: GameTab; label: string }[] = [
@@ -738,6 +781,7 @@ export default function GameDetailScreen() {
 
   const { game, logs, myLog, communityAvg, allRatings, boxScores, isBookmarked, playerNameMap } = data;
   const gamePlayedOrLive = game.status === 'final' || game.status === 'live';
+  const sport: Sport = game.sport ?? 'nba';
 
   return (
     <>
@@ -760,13 +804,13 @@ export default function GameDetailScreen() {
           <View className="flex-row justify-between items-center">
             {/* Away Team */}
             <View className="flex-1 items-center">
-              <TeamLogo abbreviation={game.away_team.abbreviation} size={64} />
+              <TeamLogo abbreviation={game.away_team.abbreviation} sport={sport} size={64} />
               <Text className="text-muted text-sm mt-2">{game.away_team.city}</Text>
               <Text className="text-white text-2xl font-bold">
                 {game.away_team.abbreviation}
               </Text>
               <Text className="text-accent text-4xl font-bold mt-2">
-                {game.away_team_score ?? '—'}
+                {game.away_team_score ?? '\u2014'}
               </Text>
             </View>
 
@@ -777,7 +821,7 @@ export default function GameDetailScreen() {
               </Text>
               {game.playoff_round && (
                 <View className="mt-1">
-                  <PlayoffBadge round={game.playoff_round} size="md" />
+                  <PlayoffBadge round={game.playoff_round} sport={sport} size="md" />
                 </View>
               )}
               <Text className="text-border text-2xl font-light mt-1">@</Text>
@@ -788,13 +832,13 @@ export default function GameDetailScreen() {
 
             {/* Home Team */}
             <View className="flex-1 items-center">
-              <TeamLogo abbreviation={game.home_team.abbreviation} size={64} />
+              <TeamLogo abbreviation={game.home_team.abbreviation} sport={sport} size={64} />
               <Text className="text-muted text-sm mt-2">{game.home_team.city}</Text>
               <Text className="text-white text-2xl font-bold">
                 {game.home_team.abbreviation}
               </Text>
               <Text className="text-accent text-4xl font-bold mt-2">
-                {game.home_team_score ?? '—'}
+                {game.home_team_score ?? '\u2014'}
               </Text>
             </View>
           </View>
@@ -903,7 +947,6 @@ export default function GameDetailScreen() {
 
           {activeTab === 'reviews' && (
             <View className="px-4 pt-4">
-              {/* Sort toggle */}
               {logs.length > 1 && (
                 <View className="flex-row bg-surface rounded-xl p-1 self-start mb-3">
                   <TouchableOpacity
@@ -931,7 +974,7 @@ export default function GameDetailScreen() {
 
               {sortedLogs.length === 0 ? (
                 <View className="items-center py-8">
-                  <Text style={{ fontSize: 40 }} className="mb-2">✍️</Text>
+                  <Text style={{ fontSize: 40 }} className="mb-2">{'\u270d\ufe0f'}</Text>
                   <Text className="text-white font-semibold mb-1">No reviews yet</Text>
                   <Text className="text-muted text-sm">Be the first to log this game!</Text>
                 </View>
@@ -945,7 +988,7 @@ export default function GameDetailScreen() {
 
           {activeTab === 'stats' && (
             <>
-              <QuarterScoreTable game={game} />
+              <PeriodScoreTable game={game} />
               <TeamComparisonStats boxScores={boxScores} game={game} />
             </>
           )}

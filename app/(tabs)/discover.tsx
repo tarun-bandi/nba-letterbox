@@ -380,16 +380,16 @@ export default function DiscoverScreen() {
               <View className="flex-row justify-between items-center">
                 <View className="flex-row items-center gap-2">
                   <Text className="text-muted text-sm font-bold w-5">{idx + 1}</Text>
-                  <TeamLogo abbreviation={item.game.away_team.abbreviation} size={22} />
+                  <TeamLogo abbreviation={item.game.away_team.abbreviation} sport={item.game.sport ?? 'nba'} size={22} />
                   <Text className="text-white font-semibold">
                     {item.game.away_team.abbreviation}
                   </Text>
                   <Text className="text-muted">@</Text>
-                  <TeamLogo abbreviation={item.game.home_team.abbreviation} size={22} />
+                  <TeamLogo abbreviation={item.game.home_team.abbreviation} sport={item.game.sport ?? 'nba'} size={22} />
                   <Text className="text-white font-semibold">
                     {item.game.home_team.abbreviation}
                   </Text>
-                  {item.game.playoff_round && <PlayoffBadge round={item.game.playoff_round} />}
+                  {item.game.playoff_round && <PlayoffBadge round={item.game.playoff_round} sport={item.game.sport ?? 'nba'} />}
                 </View>
                 <Text className="text-accent text-sm font-medium">
                   {item.logCount} {item.logCount === 1 ? 'log' : 'logs'}
@@ -424,16 +424,16 @@ export default function DiscoverScreen() {
               <View className="flex-row justify-between items-center">
                 <View className="flex-row items-center gap-2">
                   <Text className="text-muted text-sm font-bold w-5">{idx + 1}</Text>
-                  <TeamLogo abbreviation={item.game.away_team.abbreviation} size={22} />
+                  <TeamLogo abbreviation={item.game.away_team.abbreviation} sport={item.game.sport ?? 'nba'} size={22} />
                   <Text className="text-white font-semibold">
                     {item.game.away_team.abbreviation}
                   </Text>
                   <Text className="text-muted">@</Text>
-                  <TeamLogo abbreviation={item.game.home_team.abbreviation} size={22} />
+                  <TeamLogo abbreviation={item.game.home_team.abbreviation} sport={item.game.sport ?? 'nba'} size={22} />
                   <Text className="text-white font-semibold">
                     {item.game.home_team.abbreviation}
                   </Text>
-                  {item.game.playoff_round && <PlayoffBadge round={item.game.playoff_round} />}
+                  {item.game.playoff_round && <PlayoffBadge round={item.game.playoff_round} sport={item.game.sport ?? 'nba'} />}
                 </View>
                 <View className="items-end">
                   <Text className="text-accent text-sm font-semibold">

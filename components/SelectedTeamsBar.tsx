@@ -14,7 +14,7 @@ interface SelectedTeamsBarProps {
 function TeamChip({ team, onClear }: { team: Team; onClear: () => void }) {
   return (
     <View className="flex-row items-center gap-2 bg-surface border border-border rounded-full px-3 py-1.5">
-      <TeamLogo abbreviation={team.abbreviation} size={20} />
+      <TeamLogo abbreviation={team.abbreviation} sport={team.sport ?? 'nba'} size={20} />
       <Text className="text-white text-sm font-medium">{team.abbreviation}</Text>
       <TouchableOpacity onPress={onClear} hitSlop={8}>
         <X size={14} color="#6b7280" />

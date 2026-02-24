@@ -271,7 +271,7 @@ export default function ProfileScreen() {
                 key={team.id}
                 className="flex-row items-center gap-1.5 bg-surface border border-border rounded-full px-3 py-1.5"
               >
-                <TeamLogo abbreviation={team.abbreviation} size={18} />
+                <TeamLogo abbreviation={team.abbreviation} sport={team.sport ?? 'nba'} size={18} />
                 <Text className="text-white text-xs font-medium">
                   {team.abbreviation}
                 </Text>
@@ -320,7 +320,7 @@ export default function ProfileScreen() {
                   size={20}
                 />
                 {player.team && (
-                  <TeamLogo abbreviation={(player.team as Team).abbreviation} size={16} />
+                  <TeamLogo abbreviation={(player.team as Team).abbreviation} sport={(player.team as Team).sport ?? 'nba'} size={16} />
                 )}
                 <Text className="text-white text-xs font-medium">
                   {player.first_name} {player.last_name}
