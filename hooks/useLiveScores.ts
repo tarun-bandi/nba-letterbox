@@ -1,12 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import {
-  fetchTodaysGamesFromBDL,
-  mapStatus,
-  formatLiveStatus,
-  type BdlGame,
-} from '@/lib/balldontlie';
-import type { GameWithTeams } from '@/types/database';
+import { getProvider } from '@/lib/providers';
+import type { GameWithTeams, Sport } from '@/types/database';
 
 function getTodayDateStr(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -20,7 +15,7 @@ export interface LiveGameData {
 }
 
 /**
- * Polls the BallDontLie API every 60s when there are live or scheduled games.
+ * Polls each sport's provider every 60s when there are live or scheduled games.
  * Updates Supabase with fresh scores/status, then invalidates the todays-games query.
  *
  * Returns a map of provider_game_id → live game data for direct UI use.
@@ -35,16 +30,18 @@ export function useLiveScores(games: GameWithTeams[] | undefined) {
   return useQuery({
     queryKey: ['live-scores', getTodayDateStr()],
     queryFn: async (): Promise<Map<number, LiveGameData>> => {
-      const bdlGames = await fetchTodaysGamesFromBDL();
-      if (bdlGames.length === 0) return new Map();
+      const allGames = games ?? [];
+      if (allGames.length === 0) return new Map();
 
-      // Build map of provider_game_id → BDL game data
-      const bdlMap = new Map<number, BdlGame>();
-      for (const g of bdlGames) {
-        bdlMap.set(g.id, g);
+      // Group games by sport
+      const sportGroups = new Map<Sport, GameWithTeams[]>();
+      for (const g of allGames) {
+        const sport = g.sport ?? 'nba';
+        if (!sportGroups.has(sport)) sportGroups.set(sport, []);
+        sportGroups.get(sport)!.push(g);
       }
 
-      // Find games that need updating
+      const liveMap = new Map<number, LiveGameData>();
       const updates: Array<{
         provider_game_id: number;
         home_team_score: number;
@@ -54,39 +51,51 @@ export function useLiveScores(games: GameWithTeams[] | undefined) {
         time: string;
       }> = [];
 
-      const liveMap = new Map<number, LiveGameData>();
+      // Poll each sport provider in parallel
+      await Promise.all(
+        Array.from(sportGroups.entries()).map(async ([sport, sportGames]) => {
+          const provider = getProvider(sport);
+          const providerGames = await provider.fetchTodaysGames();
+          if (providerGames.length === 0) return;
 
-      for (const game of games ?? []) {
-        const bdl = bdlMap.get(game.provider_game_id);
-        if (!bdl) continue;
+          // Build map of provider_game_id → provider game data
+          const providerMap = new Map<number, typeof providerGames[0]>();
+          for (const g of providerGames) {
+            providerMap.set(typeof g.id === 'number' ? g.id : parseInt(g.id as string, 10), g);
+          }
 
-        const newStatus = mapStatus(bdl.status);
-        liveMap.set(game.provider_game_id, {
-          status: newStatus,
-          label: formatLiveStatus(bdl.status, bdl.period, bdl.time),
-          homeScore: bdl.home_team_score,
-          awayScore: bdl.visitor_team_score,
-        });
+          for (const game of sportGames) {
+            const pg = providerMap.get(game.provider_game_id);
+            if (!pg) continue;
 
-        // Only update if something changed
-        const changed =
-          game.status !== newStatus ||
-          game.home_team_score !== bdl.home_team_score ||
-          game.away_team_score !== bdl.visitor_team_score ||
-          game.period !== bdl.period ||
-          game.time !== bdl.time;
+            const newStatus = provider.mapStatus(pg.status);
+            liveMap.set(game.provider_game_id, {
+              status: newStatus,
+              label: provider.formatLiveStatus(pg.status, pg.period, pg.clock),
+              homeScore: pg.homeScore,
+              awayScore: pg.awayScore,
+            });
 
-        if (changed) {
-          updates.push({
-            provider_game_id: bdl.id,
-            home_team_score: bdl.home_team_score,
-            away_team_score: bdl.visitor_team_score,
-            status: newStatus,
-            period: bdl.period,
-            time: bdl.time,
-          });
-        }
-      }
+            const changed =
+              game.status !== newStatus ||
+              game.home_team_score !== pg.homeScore ||
+              game.away_team_score !== pg.awayScore ||
+              game.period !== pg.period ||
+              game.time !== pg.clock;
+
+            if (changed) {
+              updates.push({
+                provider_game_id: typeof pg.id === 'number' ? pg.id : parseInt(pg.id as string, 10),
+                home_team_score: pg.homeScore,
+                away_team_score: pg.awayScore,
+                status: newStatus,
+                period: pg.period,
+                time: pg.clock,
+              });
+            }
+          }
+        }),
+      );
 
       // Batch update Supabase
       if (updates.length > 0) {
@@ -105,7 +114,6 @@ export function useLiveScores(games: GameWithTeams[] | undefined) {
           ),
         );
 
-        // Invalidate so TodaysGames refetches from Supabase
         queryClient.invalidateQueries({
           queryKey: ['todays-games'],
         });
@@ -115,7 +123,6 @@ export function useLiveScores(games: GameWithTeams[] | undefined) {
     },
     enabled: hasActiveGames,
     refetchInterval: hasActiveGames ? 60_000 : false,
-    // Don't show stale data from a previous day
     staleTime: 0,
   });
 }

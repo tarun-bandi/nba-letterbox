@@ -451,7 +451,7 @@ export default function SearchScreen() {
                   )}
                   {item.team && (
                     <View className="flex-row items-center gap-1">
-                      <TeamLogo abbreviation={(item.team as Team).abbreviation} size={14} />
+                      <TeamLogo abbreviation={(item.team as Team).abbreviation} sport={(item.team as Team).sport ?? 'nba'} size={14} />
                       <Text className="text-muted text-xs">
                         {(item.team as Team).abbreviation}
                       </Text>
@@ -470,7 +470,7 @@ export default function SearchScreen() {
               <View className="flex-1 items-center justify-center pt-16 px-6">
                 <Text className="text-white text-lg font-semibold mb-2">Find players</Text>
                 <Text className="text-muted text-center">
-                  Search for NBA players by name
+                  Search for players by name
                 </Text>
               </View>
             )

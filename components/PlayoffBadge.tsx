@@ -1,20 +1,15 @@
 import { View, Text } from 'react-native';
-import type { PlayoffRound } from '@/types/database';
-
-const ROUND_LABELS: Record<PlayoffRound, string> = {
-  first_round: 'Round 1',
-  conf_semis: 'Conf Semis',
-  conf_finals: 'Conf Finals',
-  finals: 'Finals',
-};
+import { getProvider } from '@/lib/providers';
+import type { Sport } from '@/types/database';
 
 interface PlayoffBadgeProps {
-  round: PlayoffRound;
+  round: string;
+  sport?: Sport;
   size?: 'sm' | 'md';
 }
 
-export default function PlayoffBadge({ round, size = 'sm' }: PlayoffBadgeProps) {
-  const label = ROUND_LABELS[round];
+export default function PlayoffBadge({ round, sport = 'nba', size = 'sm' }: PlayoffBadgeProps) {
+  const label = getProvider(sport).getPlayoffRoundLabel(round);
 
   return (
     <View

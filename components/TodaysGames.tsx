@@ -5,25 +5,27 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import TeamLogo from './TeamLogo';
-import type { GameWithTeams } from '@/types/database';
+import type { GameWithTeams, Sport } from '@/types/database';
 
 interface TodaysGamesData {
   games: GameWithTeams[];
   favoriteTeamIds: Set<string>;
+  predictedGameIds: Set<string>;
 }
 
-/** Return today's date as YYYY-MM-DD in US Eastern time (NBA schedule TZ). */
+/** Return today's date as YYYY-MM-DD in US Eastern time. */
 function getTodayDateStr(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
 async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
   const today = getTodayDateStr();
+  // Games span UTC midnight — use wide window
   const [y, m, d] = today.split('-').map(Number);
-  const tomorrowDate = new Date(y, m - 1, d + 1);
-  const tomorrowStr = tomorrowDate.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const startUTC = new Date(Date.UTC(y, m - 1, d, 10, 0, 0)).toISOString();
+  const endUTC = new Date(Date.UTC(y, m - 1, d + 1, 12, 0, 0)).toISOString();
 
-  const [gamesRes, favRes] = await Promise.all([
+  const [gamesRes, favRes, predsRes] = await Promise.all([
     supabase
       .from('games')
       .select(`
@@ -32,12 +34,16 @@ async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
         away_team:teams!games_away_team_id_fkey (*),
         season:seasons (*)
       `)
-      .gte('game_date_utc', today)
-      .lt('game_date_utc', tomorrowStr)
+      .gte('game_date_utc', startUTC)
+      .lt('game_date_utc', endUTC)
       .order('game_date_utc', { ascending: true }),
     supabase
       .from('user_favorite_teams')
       .select('team_id')
+      .eq('user_id', userId),
+    supabase
+      .from('game_predictions')
+      .select('game_id')
       .eq('user_id', userId),
   ]);
 
@@ -47,9 +53,14 @@ async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
     (favRes.data ?? []).map((f) => f.team_id),
   );
 
+  const predictedGameIds = new Set(
+    (predsRes.data ?? []).map((p) => p.game_id),
+  );
+
   return {
     games: (gamesRes.data ?? []) as unknown as GameWithTeams[],
     favoriteTeamIds,
+    predictedGameIds,
   };
 }
 
@@ -58,6 +69,7 @@ function formatTipoff(dateStr: string): string {
   return d.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'America/New_York',
   });
 }
 
@@ -67,6 +79,22 @@ function formatTodayDate(): string {
     month: 'short',
     day: 'numeric',
   });
+}
+
+const SPORT_PILL_COLORS: Record<Sport, string> = {
+  nba: '#c9a84c',
+  nfl: '#013369',
+};
+
+function SportBadge({ sport }: { sport: Sport }) {
+  return (
+    <View
+      className="absolute top-1 left-1 rounded-full px-1.5 py-0.5"
+      style={{ backgroundColor: SPORT_PILL_COLORS[sport] ?? '#666' }}
+    >
+      <Text className="text-white text-[8px] font-bold uppercase">{sport}</Text>
+    </View>
+  );
 }
 
 export default function TodaysGames() {
@@ -83,7 +111,10 @@ export default function TodaysGames() {
 
   if (!data || data.games.length === 0) return null;
 
-  const { games, favoriteTeamIds } = data;
+  const { games, favoriteTeamIds, predictedGameIds } = data;
+
+  // Show sport badge if games span multiple sports
+  const hasMixedSports = new Set(games.map((g) => g.sport ?? 'nba')).size > 1;
 
   return (
     <View className="pb-3">
@@ -103,7 +134,6 @@ export default function TodaysGames() {
           const isFav =
             favoriteTeamIds.has(game.home_team_id) ||
             favoriteTeamIds.has(game.away_team_id);
-          // Prefer BDL live data over Supabase for immediate updates
           const status = live?.status ?? game.status;
           const homeScore = live ? live.homeScore : game.home_team_score;
           const awayScore = live ? live.awayScore : game.away_team_score;
@@ -114,6 +144,7 @@ export default function TodaysGames() {
             isFinal && homeScore != null && awayScore != null && homeScore > awayScore;
           const awayWon =
             isFinal && homeScore != null && awayScore != null && awayScore > homeScore;
+          const gameSport: Sport = game.sport ?? 'nba';
 
           return (
             <TouchableOpacity
@@ -125,6 +156,16 @@ export default function TodaysGames() {
               onPress={() => router.push(`/game/${game.id}`)}
               activeOpacity={0.7}
             >
+              {/* Sport badge (only when mixed sports) */}
+              {hasMixedSports && <SportBadge sport={gameSport} />}
+
+              {/* Prediction badge */}
+              {!hasScores && predictedGameIds.has(game.id) && (
+                <View className="absolute top-1.5 right-1.5 bg-accent/20 rounded-full px-1.5 py-0.5">
+                  <Text className="text-accent text-[9px] font-bold">Predicted</Text>
+                </View>
+              )}
+
               {/* Status */}
               <View className="flex-row items-center justify-center mb-2">
                 {isLive ? (
@@ -150,6 +191,7 @@ export default function TodaysGames() {
                 <View className="flex-row items-center gap-2">
                   <TeamLogo
                     abbreviation={game.away_team.abbreviation}
+                    sport={gameSport}
                     size={20}
                   />
                   <Text
@@ -176,6 +218,7 @@ export default function TodaysGames() {
                 <View className="flex-row items-center gap-2">
                   <TeamLogo
                     abbreviation={game.home_team.abbreviation}
+                    sport={gameSport}
                     size={20}
                   />
                   <Text

@@ -189,12 +189,12 @@ export default function ListDetailScreen() {
           >
             <View className="flex-row justify-between items-center">
               <View className="flex-row items-center gap-2 flex-1">
-                <TeamLogo abbreviation={item.away_team.abbreviation} size={24} />
+                <TeamLogo abbreviation={item.away_team.abbreviation} sport={item.sport ?? 'nba'} size={24} />
                 <Text className="text-white font-semibold text-base">
                   {item.away_team.abbreviation}
                 </Text>
                 <Text className="text-muted font-semibold text-base">@</Text>
-                <TeamLogo abbreviation={item.home_team.abbreviation} size={24} />
+                <TeamLogo abbreviation={item.home_team.abbreviation} sport={item.sport ?? 'nba'} size={24} />
                 <Text className="text-white font-semibold text-base">
                   {item.home_team.abbreviation}
                 </Text>

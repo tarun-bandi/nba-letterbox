@@ -14,14 +14,25 @@ import { useAuthStore } from '@/lib/store/authStore';
 import { useTeams } from '@/hooks/useTeams';
 import TeamLogo from '@/components/TeamLogo';
 import { PageContainer } from '@/components/PageContainer';
+import type { Sport } from '@/types/database';
+
+const SPORT_TABS: { key: Sport; label: string }[] = [
+  { key: 'nba', label: 'NBA' },
+  { key: 'nfl', label: 'NFL' },
+];
 
 export default function OnboardingFavoriteTeams() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, setOnboardingCompleted } = useAuthStore();
-  const { data: teams = [], isLoading: loading } = useTeams();
+  const [activeSport, setActiveSport] = useState<Sport>('nba');
+  const { data: nbaTeams = [], isLoading: nbaLoading } = useTeams('nba');
+  const { data: nflTeams = [], isLoading: nflLoading } = useTeams('nfl');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+
+  const teams = activeSport === 'nba' ? nbaTeams : nflTeams;
+  const loading = activeSport === 'nba' ? nbaLoading : nflLoading;
 
   function toggleTeam(teamId: string) {
     setSelected((prev) => {
@@ -42,6 +53,19 @@ export default function OnboardingFavoriteTeams() {
         team_id,
       }));
       await supabase.from('user_favorite_teams').insert(rows);
+    }
+
+    // Enable sports based on which teams were selected
+    const selectedNba = nbaTeams.some((t) => selected.has(t.id));
+    const selectedNfl = nflTeams.some((t) => selected.has(t.id));
+    const enabledSports: Sport[] = ['nba']; // always include NBA
+    if (selectedNfl) enabledSports.push('nfl');
+
+    if (enabledSports.length > 1 || selectedNfl) {
+      await supabase
+        .from('user_profiles')
+        .update({ enabled_sports: enabledSports })
+        .eq('user_id', user.id);
     }
 
     setSaving(false);
@@ -71,6 +95,25 @@ export default function OnboardingFavoriteTeams() {
         </Text>
       </View>
 
+      {/* Sport tabs */}
+      <View className="flex-row px-8 mb-3 gap-2">
+        {SPORT_TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            onPress={() => setActiveSport(tab.key)}
+            className="px-4 py-1.5 rounded-full border border-border bg-background"
+            style={activeSport === tab.key ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
+          >
+            <Text
+              className="text-sm font-medium text-muted"
+              style={activeSport === tab.key ? { color: '#0a0a0a' } : undefined}
+            >
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color="#c9a84c" />
@@ -95,7 +138,7 @@ export default function OnboardingFavoriteTeams() {
                   onPress={() => toggleTeam(team.id)}
                   activeOpacity={0.7}
                 >
-                  <TeamLogo abbreviation={team.abbreviation} size={20} />
+                  <TeamLogo abbreviation={team.abbreviation} sport={activeSport} size={20} />
                   <Text
                     className={`text-sm font-medium ${
                       isSelected ? 'text-accent' : 'text-muted'

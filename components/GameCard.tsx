@@ -186,7 +186,7 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
 
         {/* Matchup header strip */}
         <View className="flex-row items-center justify-center gap-2 mb-3">
-          <TeamLogo abbreviation={game.away_team.abbreviation} size={24} />
+          <TeamLogo abbreviation={game.away_team.abbreviation} sport={game.sport ?? 'nba'} size={24} />
           <Text className="text-white font-bold text-sm">
             {game.away_team.abbreviation}
           </Text>
@@ -208,10 +208,10 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
           <Text className="text-white font-bold text-sm">
             {game.home_team.abbreviation}
           </Text>
-          <TeamLogo abbreviation={game.home_team.abbreviation} size={24} />
+          <TeamLogo abbreviation={game.home_team.abbreviation} sport={game.sport ?? 'nba'} size={24} />
           {game.playoff_round && (
             <View className="ml-1">
-              <PlayoffBadge round={game.playoff_round} />
+              <PlayoffBadge round={game.playoff_round} sport={game.sport ?? 'nba'} />
             </View>
           )}
           {showLoggedBadge && (
