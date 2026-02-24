@@ -141,7 +141,7 @@ export default function RootLayout() {
         <StatusBar barStyle="light-content" />
         <Image
           source={require('@/assets/splash-icon.png')}
-          style={{ width: 120, height: 120, tintColor: '#c9a84c' }}
+          style={{ width: 120, height: 120, opacity: 0.7 }}
           resizeMode="contain"
         />
         <ActivityIndicator color="#c9a84c" size="small" style={{ marginTop: 24 }} />

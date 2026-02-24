@@ -86,35 +86,13 @@ export function GameCardSkeleton() {
 
 export function ProfileSkeleton() {
   return (
-    <View className="flex-1 bg-background">
-      <View className="bg-surface border-b border-border px-6 py-6">
-        <View className="flex-row items-center gap-3">
-          {/* Avatar */}
-          <Skeleton width={64} height={64} borderRadius={32} />
-          <View className="flex-1">
-            <Skeleton width={140} height={22} borderRadius={6} />
-            <Skeleton width={90} height={14} borderRadius={4} className="mt-2" />
-            <Skeleton width="85%" height={12} borderRadius={4} className="mt-3" />
-          </View>
-        </View>
-        {/* Stats row */}
-        <View className="flex-row mt-5 gap-6">
-          {[48, 40, 56, 56].map((w, i) => (
-            <View key={i}>
-              <Skeleton width={w} height={22} borderRadius={4} />
-              <Skeleton width={w + 8} height={10} borderRadius={3} className="mt-1.5" />
-            </View>
-          ))}
-        </View>
-        {/* View Stats button */}
-        <Skeleton width="100%" height={44} borderRadius={12} className="mt-4" />
-      </View>
-      {/* Recent logs */}
-      <View className="px-4 pt-5">
-        <Skeleton width={100} height={16} borderRadius={4} className="mb-3" />
-        <GameCardSkeleton />
-        <GameCardSkeleton />
-      </View>
+    <View className="flex-1 bg-background items-center justify-center">
+      <Image
+        source={require('@/assets/splash-icon.png')}
+        style={{ width: 80, height: 80, opacity: 0.5 }}
+        resizeMode="contain"
+      />
+      <ActivityIndicator color="#c9a84c" size="small" style={{ marginTop: 20 }} />
     </View>
   );
 }
@@ -124,7 +102,7 @@ export function FeedSkeleton() {
     <View className="flex-1 bg-background items-center justify-center">
       <Image
         source={require('@/assets/splash-icon.png')}
-        style={{ width: 80, height: 80, opacity: 0.6, tintColor: '#c9a84c' }}
+        style={{ width: 80, height: 80, opacity: 0.5 }}
         resizeMode="contain"
       />
       <ActivityIndicator color="#c9a84c" size="small" style={{ marginTop: 20 }} />
@@ -169,7 +147,7 @@ export function DiscoverSkeleton() {
     <View className="flex-1 bg-background items-center justify-center">
       <Image
         source={require('@/assets/splash-icon.png')}
-        style={{ width: 80, height: 80, opacity: 0.6, tintColor: '#c9a84c' }}
+        style={{ width: 80, height: 80, opacity: 0.5 }}
         resizeMode="contain"
       />
       <ActivityIndicator color="#c9a84c" size="small" style={{ marginTop: 20 }} />
