@@ -29,6 +29,7 @@ interface PublicProfileData {
   isFollowing: boolean;
   followerCount: number;
   followingCount: number;
+  predictionAccuracy: { correct: number; total: number } | null;
 }
 
 async function fetchPublicProfile(
@@ -84,6 +85,26 @@ async function fetchPublicProfile(
       ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) / 10
       : null;
 
+  // Prediction accuracy
+  let predictionAccuracy: { correct: number; total: number } | null = null;
+  const { data: predictions } = await supabase
+    .from('game_predictions')
+    .select('predicted_winner_team_id, game:games (home_team_id, away_team_id, home_team_score, away_team_score, status)')
+    .eq('user_id', profile.user_id);
+
+  if (predictions && predictions.length > 0) {
+    let correct = 0;
+    let total = 0;
+    for (const p of predictions as any[]) {
+      if (!p.game || p.game.status !== 'final') continue;
+      total++;
+      const homeWon = (p.game.home_team_score ?? 0) > (p.game.away_team_score ?? 0);
+      const winnerId = homeWon ? p.game.home_team_id : p.game.away_team_id;
+      if (p.predicted_winner_team_id === winnerId) correct++;
+    }
+    if (total > 0) predictionAccuracy = { correct, total };
+  }
+
   return {
     profile,
     logs,
@@ -91,6 +112,7 @@ async function fetchPublicProfile(
     isFollowing: followRes.data !== null,
     followerCount: followerRes.count ?? 0,
     followingCount: followingRes.count ?? 0,
+    predictionAccuracy,
   };
 }
 
@@ -145,7 +167,7 @@ export default function UserProfileScreen() {
     return <ErrorState message="User not found" onRetry={refetch} />;
   }
 
-  const { profile, logs, stats, isFollowing, followerCount, followingCount } = data;
+  const { profile, logs, stats, isFollowing, followerCount, followingCount, predictionAccuracy } = data;
   const isOwnProfile = user?.id === profile.user_id;
 
   return (
@@ -239,6 +261,14 @@ export default function UserProfileScreen() {
             <Text className="text-accent text-xl font-bold">{followingCount}</Text>
             <Text className="text-muted text-xs mt-0.5">Following</Text>
           </TouchableOpacity>
+          {predictionAccuracy && (
+            <View>
+              <Text className="text-accent text-xl font-bold">
+                {Math.round((predictionAccuracy.correct / predictionAccuracy.total) * 100)}%
+              </Text>
+              <Text className="text-muted text-xs mt-0.5">Predictions</Text>
+            </View>
+          )}
         </View>
       </View>
 

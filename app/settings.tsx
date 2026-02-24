@@ -30,8 +30,14 @@ export default function SettingsScreen() {
   const {
     defaultWatchMode,
     spoilerFreeMode,
+    notifyReactions,
+    notifyComments,
+    notifyFollows,
     setDefaultWatchMode,
     setSpoilerFreeMode,
+    setNotifyReactions,
+    setNotifyComments,
+    setNotifyFollows,
   } = usePreferencesStore();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -150,6 +156,57 @@ export default function SettingsScreen() {
             <Switch
               value={spoilerFreeMode}
               onValueChange={setSpoilerFreeMode}
+              trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+              thumbColor="#ffffff"
+            />
+          </View>
+        </View>
+      </View>
+
+      {/* Notifications */}
+      <View className="px-4 pt-6">
+        <Text className="text-muted text-xs font-semibold uppercase tracking-wider mb-3">
+          Notifications
+        </Text>
+        <View className="bg-surface border border-border rounded-xl">
+          <View className="p-4 flex-row items-center justify-between border-b border-border">
+            <View className="flex-1 mr-4">
+              <Text className="text-white font-medium">Reactions</Text>
+              <Text className="text-muted text-xs mt-1">
+                When someone reacts to your log
+              </Text>
+            </View>
+            <Switch
+              value={notifyReactions}
+              onValueChange={setNotifyReactions}
+              trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+              thumbColor="#ffffff"
+            />
+          </View>
+          <View className="p-4 flex-row items-center justify-between border-b border-border">
+            <View className="flex-1 mr-4">
+              <Text className="text-white font-medium">Comments</Text>
+              <Text className="text-muted text-xs mt-1">
+                When someone comments on your log
+              </Text>
+            </View>
+            <Switch
+              value={notifyComments}
+              onValueChange={setNotifyComments}
+              trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+              thumbColor="#ffffff"
+            />
+          </View>
+          <View className="p-4 flex-row items-center justify-between">
+            <View className="flex-1 mr-4">
+              <Text className="text-white font-medium">New Followers</Text>
+              <Text className="text-muted text-xs mt-1">
+                When someone starts following you
+              </Text>
+            </View>
+            <Switch
+              value={notifyFollows}
+              onValueChange={setNotifyFollows}
               trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
               thumbColor="#ffffff"
             />

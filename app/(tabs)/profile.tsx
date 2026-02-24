@@ -39,6 +39,7 @@ interface ProfileData {
   followerCount: number;
   followingCount: number;
   watchlistCount: number;
+  predictionAccuracy: { correct: number; total: number } | null;
 }
 
 async function fetchProfile(userId: string): Promise<ProfileData> {
@@ -109,6 +110,26 @@ async function fetchProfile(userId: string): Promise<ProfileData> {
     .map((r) => r.player)
     .filter(Boolean) as (Player & { team: Team | null })[];
 
+  // Prediction accuracy
+  let predictionAccuracy: { correct: number; total: number } | null = null;
+  const { data: predictions } = await supabase
+    .from('game_predictions')
+    .select('predicted_winner_team_id, game:games (home_team_id, away_team_id, home_team_score, away_team_score, status)')
+    .eq('user_id', userId);
+
+  if (predictions && predictions.length > 0) {
+    let correct = 0;
+    let total = 0;
+    for (const p of predictions as any[]) {
+      if (!p.game || p.game.status !== 'final') continue;
+      total++;
+      const homeWon = (p.game.home_team_score ?? 0) > (p.game.away_team_score ?? 0);
+      const winnerId = homeWon ? p.game.home_team_id : p.game.away_team_id;
+      if (p.predicted_winner_team_id === winnerId) correct++;
+    }
+    if (total > 0) predictionAccuracy = { correct, total };
+  }
+
   return {
     profile: profileRes.data,
     logs,
@@ -119,6 +140,7 @@ async function fetchProfile(userId: string): Promise<ProfileData> {
     followerCount: followerRes.count ?? 0,
     followingCount: followingRes.count ?? 0,
     watchlistCount: watchlistRes.count ?? 0,
+    predictionAccuracy,
   };
 }
 
@@ -146,7 +168,7 @@ export default function ProfileScreen() {
     return <ErrorState message="Failed to load profile" onRetry={refetch} />;
   }
 
-  const { profile, logs, stats, lists, favoriteTeams, favoritePlayers, followerCount, followingCount, watchlistCount } = data;
+  const { profile, logs, stats, lists, favoriteTeams, favoritePlayers, followerCount, followingCount, watchlistCount, predictionAccuracy } = data;
 
   return (
     <ScrollView
@@ -219,6 +241,14 @@ export default function ProfileScreen() {
             <Text className="text-accent text-xl font-bold">{followingCount}</Text>
             <Text className="text-muted text-xs mt-0.5">Following</Text>
           </TouchableOpacity>
+          {predictionAccuracy && (
+            <View>
+              <Text className="text-accent text-xl font-bold">
+                {Math.round((predictionAccuracy.correct / predictionAccuracy.total) * 100)}%
+              </Text>
+              <Text className="text-muted text-xs mt-0.5">Predictions</Text>
+            </View>
+          )}
         </View>
 
         {/* View Stats */}
