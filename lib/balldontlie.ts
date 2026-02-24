@@ -38,7 +38,8 @@ export function mapStatus(status: string): 'scheduled' | 'live' | 'final' {
 
 /**
  * Format the BDL status string into a human-readable live label.
- * e.g. "Q3 5:20" → "Q3 5:20", "Halftime" → "Half", "Final" → null
+ * Uses `period` (number) for the quarter and extracts only the MM:SS
+ * clock from `time`/`status` to avoid duplication.
  */
 export function formatLiveStatus(
   status: string,
@@ -48,28 +49,23 @@ export function formatLiveStatus(
   const mapped = mapStatus(status);
   if (mapped !== 'live') return null;
 
-  const s = status.trim();
+  const s = status.trim().toLowerCase();
 
-  // If status already contains a timestamp (e.g. "Q3 5:20", "OT1 2:00"), use as-is
-  if (/\b(q\d|ot\d?)\s+\d+:\d+/i.test(s)) {
-    return s;
+  // Halftime
+  if (s.includes('half')) return 'Halftime';
+
+  // End of quarter/OT
+  if (s.includes('end')) {
+    const label = period <= 4 ? `Q${period}` : `OT${period - 4}`;
+    return `End ${label}`;
   }
 
-  // Normalize "3rd Qtr" → "Q3" etc.
-  const qtrMatch = s.match(/(\d)(st|nd|rd|th)\s+qtr/i);
-  if (qtrMatch) {
-    const label = `Q${qtrMatch[1]}`;
-    return time ? `${label} ${time}` : label;
-  }
+  // Extract MM:SS clock from time or status (ignore any Q3/OT prefix junk)
+  const clock = (time ?? '').match(/(\d{1,2}:\d{2})/)?.[1]
+    ?? (status ?? '').match(/(\d{1,2}:\d{2})/)?.[1];
 
-  // "Halftime" → return as-is
-  if (/half/i.test(s)) return s;
-
-  // Build from period + time (status is bare "Q3", "OT1", etc.)
   if (period > 0) {
     const label = period <= 4 ? `Q${period}` : `OT${period - 4}`;
-    // BDL time field may already include quarter prefix — strip it
-    const clock = time ? time.replace(/^(q\d|ot\d?)\s+/i, '') : '';
     return clock ? `${label} ${clock}` : label;
   }
 
