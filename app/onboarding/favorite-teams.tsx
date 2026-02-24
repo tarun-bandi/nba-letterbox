@@ -34,6 +34,13 @@ export default function OnboardingFavoriteTeams() {
   const teams = activeSport === 'nba' ? nbaTeams : nflTeams;
   const loading = activeSport === 'nba' ? nbaLoading : nflLoading;
 
+  // Lock to the sport of the first selected team
+  const nbaIds = new Set(nbaTeams.map((t) => t.id));
+  const nflIds = new Set(nflTeams.map((t) => t.id));
+  const hasNbaSelected = [...selected].some((id) => nbaIds.has(id));
+  const hasNflSelected = [...selected].some((id) => nflIds.has(id));
+  const lockedSport: Sport | null = hasNbaSelected ? 'nba' : hasNflSelected ? 'nfl' : null;
+
   function toggleTeam(teamId: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -97,21 +104,29 @@ export default function OnboardingFavoriteTeams() {
 
       {/* Sport tabs */}
       <View className="flex-row px-8 mb-3 gap-2">
-        {SPORT_TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            onPress={() => setActiveSport(tab.key)}
-            className="px-4 py-1.5 rounded-full border border-border bg-background"
-            style={activeSport === tab.key ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined}
-          >
-            <Text
-              className="text-sm font-medium text-muted"
-              style={activeSport === tab.key ? { color: '#0a0a0a' } : undefined}
+        {SPORT_TABS.map((tab) => {
+          const isActive = activeSport === tab.key;
+          const isDisabled = lockedSport !== null && lockedSport !== tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              onPress={() => !isDisabled && setActiveSport(tab.key)}
+              disabled={isDisabled}
+              className="px-4 py-1.5 rounded-full border border-border bg-background"
+              style={[
+                isActive ? { backgroundColor: '#c9a84c', borderColor: '#c9a84c' } : undefined,
+                isDisabled ? { opacity: 0.35 } : undefined,
+              ]}
             >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                className="text-sm font-medium text-muted"
+                style={isActive ? { color: '#0a0a0a' } : undefined}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {loading ? (
