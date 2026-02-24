@@ -1,7 +1,8 @@
 import '../global.css';
 import { useEffect, useRef } from 'react';
-import { View, StatusBar, Image, ActivityIndicator } from 'react-native';
+import { View, StatusBar, Image, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { ChevronLeft } from 'lucide-react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -102,6 +103,7 @@ function usePushNotifications() {
 
 export default function RootLayout() {
   const { isLoading, setSession, setLoading, setOnboardingCompleted } = useAuthStore();
+  const router = useRouter();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -166,6 +168,17 @@ export default function RootLayout() {
                 title: 'Game',
                 headerStyle: { backgroundColor: '#1a1a1a' },
                 headerTintColor: '#ffffff',
+                headerLeft: () => (
+                  <TouchableOpacity
+                    onPress={() => router.back()}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    className="flex-row items-center mr-2"
+                    activeOpacity={0.6}
+                  >
+                    <ChevronLeft size={24} color="#ffffff" />
+                    <Text className="text-white text-base">Back</Text>
+                  </TouchableOpacity>
+                ),
               }}
             />
             <Stack.Screen
