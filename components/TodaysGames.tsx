@@ -20,12 +20,12 @@ function getTodayDateStr(): string {
 
 async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
   const today = getTodayDateStr();
-  // NBA games on a given ET date can have UTC datetimes spanning into the next UTC day
-  // (e.g. 7 PM ET = next day 00:00 UTC). Use a wide UTC window to capture all games.
-  const startUTC = `${today}T00:00:00Z`;   // covers noon ET games
+  // NBA games on a given ET date have UTC datetimes spanning into the next UTC day
+  // (e.g. 7 PM ET = next day 00:00 UTC, 10:30 PM ET = next day 03:30 UTC).
+  // Earliest game: ~noon ET = 17:00 UTC same day. Latest tipoff: ~10:30 PM ET = 03:30 UTC next day.
   const [y, m, d] = today.split('-').map(Number);
-  const nextDay = new Date(Date.UTC(y, m - 1, d + 1, 10, 0, 0)); // next day 10:00 UTC = 5 AM ET
-  const endUTC = nextDay.toISOString();
+  const startUTC = new Date(Date.UTC(y, m - 1, d, 16, 0, 0)).toISOString(); // 16:00 UTC = noon ET
+  const endUTC = new Date(Date.UTC(y, m - 1, d + 1, 8, 0, 0)).toISOString(); // 08:00 UTC = 3 AM ET
 
   const [gamesRes, favRes, predsRes] = await Promise.all([
     supabase
