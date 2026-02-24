@@ -12,16 +12,16 @@ interface TodaysGamesData {
   favoriteTeamIds: Set<string>;
 }
 
+/** Return today's date as YYYY-MM-DD in US Eastern time (NBA schedule TZ). */
 function getTodayDateStr(): string {
-  const now = new Date();
-  return now.toISOString().split('T')[0];
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
 async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
   const today = getTodayDateStr();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const [y, m, d] = today.split('-').map(Number);
+  const tomorrowDate = new Date(y, m - 1, d + 1);
+  const tomorrowStr = tomorrowDate.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
   const [gamesRes, favRes] = await Promise.all([
     supabase
