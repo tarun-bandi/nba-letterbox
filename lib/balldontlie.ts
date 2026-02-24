@@ -68,7 +68,7 @@ export async function fetchTodaysGamesFromBDL(): Promise<BdlGame[]> {
     return [];
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const url = `${BDL_BASE}/games?dates[]=${today}&per_page=100`;
 
   const res = await fetch(url, {

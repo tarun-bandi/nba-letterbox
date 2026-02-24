@@ -9,7 +9,7 @@ import {
 import type { GameWithTeams } from '@/types/database';
 
 function getTodayDateStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
 /**
