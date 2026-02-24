@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import TeamLogo from './TeamLogo';
-import type { GameWithTeams } from '@/types/database';
+import type { GameWithTeams, Sport } from '@/types/database';
 
 interface TodaysGamesData {
   games: GameWithTeams[];
@@ -13,19 +13,17 @@ interface TodaysGamesData {
   predictedGameIds: Set<string>;
 }
 
-/** Return today's date as YYYY-MM-DD in US Eastern time (NBA schedule TZ). */
+/** Return today's date as YYYY-MM-DD in US Eastern time. */
 function getTodayDateStr(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
 async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
   const today = getTodayDateStr();
-  // NBA games on a given ET date have UTC datetimes spanning into the next UTC day
-  // (e.g. 7 PM ET = next day 00:00 UTC, 10:30 PM ET = next day 03:30 UTC).
-  // Earliest game: ~noon ET = 17:00 UTC same day. Latest tipoff: ~10:30 PM ET = 03:30 UTC next day.
+  // Games span UTC midnight — use wide window (covers NFL early games + late NBA tips)
   const [y, m, d] = today.split('-').map(Number);
-  const startUTC = new Date(Date.UTC(y, m - 1, d, 16, 0, 0)).toISOString(); // 16:00 UTC = noon ET
-  const endUTC = new Date(Date.UTC(y, m - 1, d + 1, 8, 0, 0)).toISOString(); // 08:00 UTC = 3 AM ET
+  const startUTC = new Date(Date.UTC(y, m - 1, d, 10, 0, 0)).toISOString();
+  const endUTC = new Date(Date.UTC(y, m - 1, d + 1, 12, 0, 0)).toISOString();
 
   const [gamesRes, favRes, predsRes] = await Promise.all([
     supabase
@@ -83,6 +81,22 @@ function formatTodayDate(): string {
   });
 }
 
+const SPORT_PILL_COLORS: Record<Sport, string> = {
+  nba: '#c9a84c',
+  nfl: '#013369',
+};
+
+function SportBadge({ sport }: { sport: Sport }) {
+  return (
+    <View
+      className="absolute top-1 left-1 rounded-full px-1.5 py-0.5"
+      style={{ backgroundColor: SPORT_PILL_COLORS[sport] ?? '#666' }}
+    >
+      <Text className="text-white text-[8px] font-bold uppercase">{sport}</Text>
+    </View>
+  );
+}
+
 export default function TodaysGames() {
   const { user } = useAuthStore();
   const router = useRouter();
@@ -98,6 +112,9 @@ export default function TodaysGames() {
   if (!data || data.games.length === 0) return null;
 
   const { games, favoriteTeamIds, predictedGameIds } = data;
+
+  // Show sport badge if games span multiple sports
+  const hasMixedSports = new Set(games.map((g) => g.sport ?? 'nba')).size > 1;
 
   return (
     <View className="pb-3">
@@ -117,7 +134,6 @@ export default function TodaysGames() {
           const isFav =
             favoriteTeamIds.has(game.home_team_id) ||
             favoriteTeamIds.has(game.away_team_id);
-          // Prefer BDL live data over Supabase for immediate updates
           const status = live?.status ?? game.status;
           const homeScore = live ? live.homeScore : game.home_team_score;
           const awayScore = live ? live.awayScore : game.away_team_score;
@@ -128,6 +144,7 @@ export default function TodaysGames() {
             isFinal && homeScore != null && awayScore != null && homeScore > awayScore;
           const awayWon =
             isFinal && homeScore != null && awayScore != null && awayScore > homeScore;
+          const gameSport: Sport = game.sport ?? 'nba';
 
           return (
             <TouchableOpacity
@@ -139,6 +156,16 @@ export default function TodaysGames() {
               onPress={() => router.push(`/game/${game.id}`)}
               activeOpacity={0.7}
             >
+              {/* Sport badge (only when mixed sports) */}
+              {hasMixedSports && <SportBadge sport={gameSport} />}
+
+              {/* Prediction badge */}
+              {!hasScores && predictedGameIds.has(game.id) && (
+                <View className="absolute top-1.5 right-1.5 bg-accent/20 rounded-full px-1.5 py-0.5">
+                  <Text className="text-accent text-[9px] font-bold">Predicted</Text>
+                </View>
+              )}
+
               {/* Status */}
               <View className="flex-row items-center justify-center mb-2">
                 {isLive ? (
@@ -171,6 +198,7 @@ export default function TodaysGames() {
                 <View className="flex-row items-center gap-2">
                   <TeamLogo
                     abbreviation={game.away_team.abbreviation}
+                    sport={gameSport}
                     size={20}
                   />
                   <Text
@@ -197,6 +225,7 @@ export default function TodaysGames() {
                 <View className="flex-row items-center gap-2">
                   <TeamLogo
                     abbreviation={game.home_team.abbreviation}
+                    sport={gameSport}
                     size={20}
                   />
                   <Text

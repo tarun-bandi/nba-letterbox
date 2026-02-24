@@ -6,11 +6,18 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+export type Sport = 'nba' | 'nfl';
 export type SeasonType = 'regular' | 'playoffs';
 export type GameStatus = 'scheduled' | 'live' | 'final';
 export type WatchMode = 'live' | 'replay' | 'condensed' | 'highlights';
 export type PlayoffRound = 'first_round' | 'conf_semis' | 'conf_finals' | 'finals';
 export type ReactionType = 'like' | 'fire' | 'ice' | 'skull' | 'mind_blown' | 'respect';
+
+export interface PeriodScores {
+  home: number[];
+  away: number[];
+  ot: { home: number; away: number }[];
+}
 
 export interface Database {
   public: {
@@ -23,6 +30,7 @@ export interface Database {
           bio: string | null;
           avatar_url: string | null;
           onboarding_completed: boolean;
+          enabled_sports: Sport[];
           created_at: string;
           updated_at: string;
         };
@@ -33,6 +41,7 @@ export interface Database {
           bio?: string | null;
           avatar_url?: string | null;
           onboarding_completed?: boolean;
+          enabled_sports?: Sport[];
           created_at?: string;
           updated_at?: string;
         };
@@ -42,6 +51,7 @@ export interface Database {
           bio?: string | null;
           avatar_url?: string | null;
           onboarding_completed?: boolean;
+          enabled_sports?: Sport[];
           updated_at?: string;
         };
       };
@@ -69,6 +79,7 @@ export interface Database {
           division: string | null;
           full_name: string;
           name: string;
+          sport: Sport;
           created_at: string;
         };
         Insert: {
@@ -81,6 +92,7 @@ export interface Database {
           division?: string | null;
           full_name: string;
           name: string;
+          sport?: Sport;
           created_at?: string;
         };
         Update: {
@@ -90,6 +102,7 @@ export interface Database {
           division?: string | null;
           full_name?: string;
           name?: string;
+          sport?: Sport;
         };
       };
       players: {
@@ -110,6 +123,7 @@ export interface Database {
           draft_round: number | null;
           draft_number: number | null;
           headshot_url: string | null;
+          sport: Sport;
           created_at: string;
           updated_at: string;
         };
@@ -130,12 +144,14 @@ export interface Database {
           draft_round?: number | null;
           draft_number?: number | null;
           headshot_url?: string | null;
+          sport?: Sport;
         };
         Update: {
           position?: string | null;
           jersey_number?: string | null;
           team_id?: string | null;
           headshot_url?: string | null;
+          sport?: Sport;
           updated_at?: string;
         };
       };
@@ -144,16 +160,19 @@ export interface Database {
           id: string;
           year: number;
           type: SeasonType;
+          sport: Sport;
           created_at: string;
         };
         Insert: {
           id?: string;
           year: number;
           type?: SeasonType;
+          sport?: Sport;
           created_at?: string;
         };
         Update: {
           type?: SeasonType;
+          sport?: Sport;
         };
       };
       games: {
@@ -171,7 +190,9 @@ export interface Database {
           period: number | null;
           time: string | null;
           postseason: boolean;
-          playoff_round: PlayoffRound | null;
+          playoff_round: string | null;
+          sport: Sport;
+          period_scores: PeriodScores | null;
           home_q1: number | null;
           home_q2: number | null;
           home_q3: number | null;
@@ -202,7 +223,9 @@ export interface Database {
           period?: number | null;
           time?: string | null;
           postseason?: boolean;
-          playoff_round?: PlayoffRound | null;
+          playoff_round?: string | null;
+          sport?: Sport;
+          period_scores?: PeriodScores | null;
           home_q1?: number | null;
           home_q2?: number | null;
           home_q3?: number | null;
@@ -223,6 +246,8 @@ export interface Database {
           status?: GameStatus;
           period?: number | null;
           time?: string | null;
+          sport?: Sport;
+          period_scores?: PeriodScores | null;
           home_q1?: number | null;
           home_q2?: number | null;
           home_q3?: number | null;
@@ -236,7 +261,7 @@ export interface Database {
           arena?: string | null;
           attendance?: number | null;
           highlights_url?: string | null;
-          playoff_round?: PlayoffRound | null;
+          playoff_round?: string | null;
           updated_at?: string;
         };
       };
@@ -424,6 +449,8 @@ export interface Database {
           game_id: string;
           team_id: string;
           player_name: string;
+          sport: Sport;
+          stats: Record<string, any> | null;
           minutes: string | null;
           points: number | null;
           rebounds: number | null;
@@ -467,6 +494,8 @@ export interface Database {
           game_id: string;
           team_id: string;
           player_name: string;
+          sport?: Sport;
+          stats?: Record<string, any> | null;
           minutes?: string | null;
           points?: number | null;
           rebounds?: number | null;

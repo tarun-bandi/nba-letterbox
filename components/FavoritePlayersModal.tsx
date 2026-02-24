@@ -231,7 +231,7 @@ export default function FavoritePlayersModal({
                           )}
                           {item.team && (
                             <View className="flex-row items-center gap-1">
-                              <TeamLogo abbreviation={(item.team as Team).abbreviation} size={14} />
+                              <TeamLogo abbreviation={(item.team as Team).abbreviation} sport={(item.team as Team).sport ?? 'nba'} size={14} />
                               <Text className="text-muted text-xs">
                                 {(item.team as Team).abbreviation}
                               </Text>

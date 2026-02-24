@@ -6,6 +6,14 @@
     {
       "path": "/api/cron/seed-games",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/seed-nba",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/seed-nfl",
+      "schedule": "0 0 * * *"
     }
   ]
 }
