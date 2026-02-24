@@ -220,6 +220,15 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="rankings"
+              options={{
+                headerShown: true,
+                title: 'My Rankings',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
+            <Stack.Screen
               name="player/[id]"
               options={{
                 headerShown: true,

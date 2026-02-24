@@ -1,8 +1,9 @@
 import { supabase } from './supabase';
+import { fetchRankingsForGames } from './rankingService';
 import type { GameLogWithGame, LogTag, ReactionType } from '@/types/database';
 
 /**
- * Enriches game logs with reaction counts, user's reaction, tags, and comment counts.
+ * Enriches game logs with reaction counts, user's reaction, tags, comment counts, and rankings.
  */
 export async function enrichLogs(
   logs: GameLogWithGame[],
@@ -67,13 +68,29 @@ export async function enrichLogs(
     commentCountMap[row.log_id] = (commentCountMap[row.log_id] ?? 0) + 1;
   }
 
-  return logs.map((l) => ({
-    ...l,
-    like_count: likeCountMap[l.id] ?? 0,
-    liked_by_me: l.id in myReactionMap,
-    reactions: reactionsMap[l.id] ?? {},
-    my_reaction: myReactionMap[l.id] ?? null,
-    tags: tagsMap[l.id] ?? [],
-    comment_count: commentCountMap[l.id] ?? 0,
-  }));
+  // Fetch rankings for current user's logs
+  const myGameIds = logs
+    .filter((l) => l.user_id === currentUserId)
+    .map((l) => l.game_id);
+  let rankingsMap: Record<string, { position: number; total: number }> = {};
+  if (myGameIds.length > 0) {
+    try {
+      rankingsMap = await fetchRankingsForGames(currentUserId, myGameIds);
+    } catch {}
+  }
+
+  return logs.map((l) => {
+    const ranking = l.user_id === currentUserId ? rankingsMap[l.game_id] : undefined;
+    return {
+      ...l,
+      like_count: likeCountMap[l.id] ?? 0,
+      liked_by_me: l.id in myReactionMap,
+      reactions: reactionsMap[l.id] ?? {},
+      my_reaction: myReactionMap[l.id] ?? null,
+      tags: tagsMap[l.id] ?? [],
+      comment_count: commentCountMap[l.id] ?? 0,
+      rank_position: ranking?.position,
+      rank_total: ranking?.total,
+    };
+  });
 }

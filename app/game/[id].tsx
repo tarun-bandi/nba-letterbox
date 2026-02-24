@@ -23,6 +23,10 @@ import * as Haptics from 'expo-haptics';
 import GameCard from '@/components/GameCard';
 import ErrorState from '@/components/ErrorState';
 import LogModal from '@/components/LogModal';
+import type { LogModalResult } from '@/components/LogModal';
+import RankingFlowModal from '@/components/RankingFlowModal';
+import RankBadge from '@/components/RankBadge';
+import { fetchGameRanking } from '@/lib/rankingService';
 import AddToListModal from '@/components/AddToListModal';
 import TeamLogo from '@/components/TeamLogo';
 import PlayoffBadge from '@/components/PlayoffBadge';
@@ -48,6 +52,7 @@ interface GameDetail {
   playerNameMap: Record<string, string>; // player_name -> player_id
   myPrediction: string | null; // predicted_winner_team_id
   predictionTally: PredictionTally;
+  myRanking: { position: number; total: number } | null;
 }
 
 async function fetchGameDetail(gameId: string, userId: string): Promise<GameDetail> {
@@ -154,6 +159,12 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
     predictionTally[tid] = (predictionTally[tid] ?? 0) + 1;
   }
 
+  // Fetch ranking for this game
+  let myRanking: { position: number; total: number } | null = null;
+  try {
+    myRanking = await fetchGameRanking(userId, gameId);
+  } catch {}
+
   return {
     game: gameRes.data as unknown as GameWithTeams,
     logs,
@@ -165,6 +176,7 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
     playerNameMap,
     myPrediction: myPredRes.data?.predicted_winner_team_id ?? null,
     predictionTally,
+    myRanking,
   };
 }
 
@@ -847,6 +859,8 @@ export default function GameDetailScreen() {
   const queryClient = useQueryClient();
   const [showLogModal, setShowLogModal] = useState(false);
   const [showListModal, setShowListModal] = useState(false);
+  const [showRankingFlow, setShowRankingFlow] = useState(false);
+  const [isRerank, setIsRerank] = useState(false);
   const [activeTab, setActiveTab] = useState<GameTab>('box_score');
   const [reviewSort, setReviewSort] = useState<ReviewSort>('recent');
 
@@ -958,7 +972,7 @@ export default function GameDetailScreen() {
     return <ErrorState message="Failed to load game details" onRetry={refetch} />;
   }
 
-  const { game, logs, myLog, communityAvg, allRatings, boxScores, isBookmarked, playerNameMap, myPrediction, predictionTally } = data;
+  const { game, logs, myLog, communityAvg, allRatings, boxScores, isBookmarked, playerNameMap, myPrediction, predictionTally, myRanking } = data;
   const gamePlayedOrLive = game.status === 'final' || game.status === 'live';
   const sport: Sport = game.sport ?? 'nba';
 
@@ -1037,53 +1051,76 @@ export default function GameDetailScreen() {
 
         {/* Action Buttons */}
         {gamePlayedOrLive ? (
-          <View className="mx-4 mt-4 flex-row gap-3">
-            <TouchableOpacity
-              className={`flex-1 rounded-xl py-4 items-center ${
-                myLog ? 'bg-surface border border-accent' : 'bg-accent'
-              }`}
-              style={!myLog ? { backgroundColor: '#c9a84c' } : undefined}
-              onPress={() => setShowLogModal(true)}
-              activeOpacity={0.8}
-            >
-              <Text
-                className={`font-semibold text-base ${
-                  myLog ? 'text-accent' : 'text-background'
+          <>
+            <View className="mx-4 mt-4 flex-row gap-3">
+              <TouchableOpacity
+                className={`flex-1 rounded-xl py-4 items-center ${
+                  myLog ? 'bg-surface border border-accent' : 'bg-accent'
                 }`}
+                style={!myLog ? { backgroundColor: '#c9a84c' } : undefined}
+                onPress={() => setShowLogModal(true)}
+                activeOpacity={0.8}
               >
-                {myLog ? 'Edit My Log' : 'Log This Game'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="bg-surface border border-border rounded-xl w-12 py-4 items-center justify-center"
-              onPress={() => bookmarkMutation.mutate(isBookmarked)}
-              activeOpacity={0.8}
-            >
-              <Bookmark
-                size={22}
-                color="#c9a84c"
-                fill={isBookmarked ? '#c9a84c' : 'transparent'}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="bg-surface border border-border rounded-xl w-12 py-4 items-center justify-center"
-              onPress={() => setShowListModal(true)}
-              activeOpacity={0.8}
-            >
-              <List size={22} color="#c9a84c" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="bg-surface border border-border rounded-xl w-12 py-4 items-center justify-center"
-              onPress={() => {
-                const url = gameUrl(game.id);
-                const message = `Check out ${game.away_team.abbreviation} @ ${game.home_team.abbreviation} on NBA Letterbox\n${url}`;
-                RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
-              }}
-              activeOpacity={0.8}
-            >
-              <Share2 size={22} color="#c9a84c" />
-            </TouchableOpacity>
-          </View>
+                <Text
+                  className={`font-semibold text-base ${
+                    myLog ? 'text-accent' : 'text-background'
+                  }`}
+                >
+                  {myLog ? 'Edit My Log' : 'Log This Game'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="bg-surface border border-border rounded-xl w-12 py-4 items-center justify-center"
+                onPress={() => bookmarkMutation.mutate(isBookmarked)}
+                activeOpacity={0.8}
+              >
+                <Bookmark
+                  size={22}
+                  color="#c9a84c"
+                  fill={isBookmarked ? '#c9a84c' : 'transparent'}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="bg-surface border border-border rounded-xl w-12 py-4 items-center justify-center"
+                onPress={() => setShowListModal(true)}
+                activeOpacity={0.8}
+              >
+                <List size={22} color="#c9a84c" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="bg-surface border border-border rounded-xl w-12 py-4 items-center justify-center"
+                onPress={() => {
+                  const url = gameUrl(game.id);
+                  const message = `Check out ${game.away_team.abbreviation} @ ${game.home_team.abbreviation} on NBA Letterbox\n${url}`;
+                  RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
+                }}
+                activeOpacity={0.8}
+              >
+                <Share2 size={22} color="#c9a84c" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Rank button — shown when game is logged */}
+            {myLog && (
+              <TouchableOpacity
+                className="mx-4 mt-2 bg-surface border border-border rounded-xl py-3 flex-row items-center justify-center gap-2"
+                onPress={() => {
+                  setIsRerank(!!myRanking);
+                  setShowRankingFlow(true);
+                }}
+                activeOpacity={0.7}
+              >
+                {myRanking ? (
+                  <>
+                    <RankBadge position={myRanking.position} total={myRanking.total} size="md" />
+                    <Text className="text-muted text-sm">Re-rank this game</Text>
+                  </>
+                ) : (
+                  <Text className="text-accent font-semibold text-sm">Rank this game</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </>
         ) : (
           <View className="mx-4 mt-4 bg-surface border border-border rounded-xl p-4">
             <Text className="text-muted text-xs text-center mb-3">
@@ -1296,11 +1333,31 @@ export default function GameDetailScreen() {
           gameId={id}
           existingLog={myLog}
           onClose={() => setShowLogModal(false)}
-          onSuccess={() => {
+          onSuccess={(result?: LogModalResult) => {
             setShowLogModal(false);
             refetch();
             queryClient.invalidateQueries({ queryKey: ['feed'] });
             queryClient.invalidateQueries({ queryKey: ['profile'] });
+            if (result?.showRankingFlow) {
+              setIsRerank(false);
+              setShowRankingFlow(true);
+            }
+          }}
+        />
+      )}
+
+      {/* Ranking Flow Modal */}
+      {data?.game && (
+        <RankingFlowModal
+          visible={showRankingFlow}
+          gameId={id}
+          game={data.game}
+          isRerank={isRerank}
+          onClose={() => setShowRankingFlow(false)}
+          onComplete={() => {
+            setShowRankingFlow(false);
+            refetch();
+            queryClient.invalidateQueries({ queryKey: ['rankings'] });
           }}
         />
       )}
