@@ -160,7 +160,7 @@ export default function TodaysGames() {
                     {game.away_team.abbreviation}
                   </Text>
                 </View>
-                {(isLive || isFinal) && (
+                {game.away_team_score != null && (
                   <Text
                     className={`text-sm ${
                       awayWon ? 'text-white font-bold' : 'text-muted'
@@ -186,7 +186,7 @@ export default function TodaysGames() {
                     {game.home_team.abbreviation}
                   </Text>
                 </View>
-                {(isLive || isFinal) && (
+                {game.home_team_score != null && (
                   <Text
                     className={`text-sm ${
                       homeWon ? 'text-white font-bold' : 'text-muted'
