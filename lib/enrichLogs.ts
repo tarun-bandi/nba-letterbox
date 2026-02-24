@@ -1,8 +1,8 @@
 import { supabase } from './supabase';
-import type { GameLogWithGame, LogTag } from '@/types/database';
+import type { GameLogWithGame, LogTag, ReactionType } from '@/types/database';
 
 /**
- * Enriches game logs with like counts, liked-by-me status, and tags.
+ * Enriches game logs with reaction counts, user's reaction, tags, and comment counts.
  */
 export async function enrichLogs(
   logs: GameLogWithGame[],
@@ -13,15 +13,15 @@ export async function enrichLogs(
   const logIds = logs.map((l) => l.id);
 
   const [likesRes, myLikesRes, tagMapRes, commentsRes] = await Promise.all([
-    // Count likes per log
+    // Fetch all likes with reaction_type
     supabase
       .from('likes')
-      .select('log_id')
+      .select('log_id, reaction_type')
       .in('log_id', logIds),
-    // Check which logs current user liked
+    // Fetch current user's reactions
     supabase
       .from('likes')
-      .select('log_id')
+      .select('log_id, reaction_type')
       .eq('user_id', currentUserId)
       .in('log_id', logIds),
     // Fetch tags for these logs
@@ -36,14 +36,22 @@ export async function enrichLogs(
       .in('log_id', logIds),
   ]);
 
-  // Build like count map
+  // Build reaction count map and total like count map
+  const reactionsMap: Record<string, Record<ReactionType, number>> = {};
   const likeCountMap: Record<string, number> = {};
   for (const row of likesRes.data ?? []) {
-    likeCountMap[row.log_id] = (likeCountMap[row.log_id] ?? 0) + 1;
+    const logId = row.log_id;
+    likeCountMap[logId] = (likeCountMap[logId] ?? 0) + 1;
+    if (!reactionsMap[logId]) reactionsMap[logId] = {} as Record<ReactionType, number>;
+    const rt = (row.reaction_type ?? 'like') as ReactionType;
+    reactionsMap[logId][rt] = (reactionsMap[logId][rt] ?? 0) + 1;
   }
 
-  // Build liked-by-me set
-  const myLikedSet = new Set((myLikesRes.data ?? []).map((r) => r.log_id));
+  // Build my reaction map
+  const myReactionMap: Record<string, ReactionType> = {};
+  for (const row of myLikesRes.data ?? []) {
+    myReactionMap[row.log_id] = (row.reaction_type ?? 'like') as ReactionType;
+  }
 
   // Build tags map
   const tagsMap: Record<string, LogTag[]> = {};
@@ -62,7 +70,9 @@ export async function enrichLogs(
   return logs.map((l) => ({
     ...l,
     like_count: likeCountMap[l.id] ?? 0,
-    liked_by_me: myLikedSet.has(l.id),
+    liked_by_me: l.id in myReactionMap,
+    reactions: reactionsMap[l.id] ?? {},
+    my_reaction: myReactionMap[l.id] ?? null,
     tags: tagsMap[l.id] ?? [],
     comment_count: commentCountMap[l.id] ?? 0,
   }));

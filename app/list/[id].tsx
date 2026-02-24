@@ -6,14 +6,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Share as RNShare,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Lock, Trash2, Pencil } from 'lucide-react-native';
+import { Lock, Trash2, Pencil, Share2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import TeamLogo from '@/components/TeamLogo';
 import CreateListModal from '@/components/CreateListModal';
+import { listUrl } from '@/lib/urls';
 import type { List, GameWithTeams } from '@/types/database';
 import { PageContainer } from '@/components/PageContainer';
 
@@ -139,24 +142,37 @@ export default function ListDetailScreen() {
             {list.title}
           </Text>
           {list.is_private && <Lock size={16} color="#6b7280" />}
-          {isOwner && (
-            <View className="flex-row items-center gap-1">
-              <TouchableOpacity
-                className="p-2"
-                onPress={() => setShowEditModal(true)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Pencil size={18} color="#c9a84c" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="p-2"
-                onPress={handleDeleteList}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Trash2 size={18} color="#e63946" />
-              </TouchableOpacity>
-            </View>
-          )}
+          <View className="flex-row items-center gap-1">
+            <TouchableOpacity
+              className="p-2"
+              onPress={() => {
+                const url = listUrl(id);
+                const message = `Check out "${list.title}" on NBA Letterbox\n${url}`;
+                RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Share2 size={18} color="#6b7280" />
+            </TouchableOpacity>
+            {isOwner && (
+              <>
+                <TouchableOpacity
+                  className="p-2"
+                  onPress={() => setShowEditModal(true)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Pencil size={18} color="#c9a84c" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="p-2"
+                  onPress={handleDeleteList}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Trash2 size={18} color="#e63946" />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
         {list.description && (
           <Text className="text-muted text-sm mt-1">{list.description}</Text>

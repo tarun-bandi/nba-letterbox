@@ -10,6 +10,7 @@ export type Sport = 'nba' | 'nfl';
 export type SeasonType = 'regular' | 'playoffs';
 export type GameStatus = 'scheduled' | 'live' | 'final';
 export type WatchMode = 'live' | 'replay' | 'condensed' | 'highlights';
+export type PlayoffRound = 'first_round' | 'conf_semis' | 'conf_finals' | 'finals';
 export type ReactionType = 'like' | 'fire' | 'ice' | 'skull' | 'mind_blown' | 'respect';
 
 export interface PeriodScores {

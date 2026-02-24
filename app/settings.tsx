@@ -8,12 +8,16 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Share as RNShare,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { Share2, Users, ChevronRight } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
 import { usePreferencesStore } from '@/lib/store/preferencesStore';
+import { inviteUrl } from '@/lib/urls';
 import Avatar from '@/components/Avatar';
+import FindFriendsSheet from '@/components/FindFriendsSheet';
 import { PageContainer } from '@/components/PageContainer';
 import { useQueryClient } from '@tanstack/react-query';
 import type { UserProfile, WatchMode, Sport } from '@/types/database';
@@ -31,11 +35,18 @@ export default function SettingsScreen() {
   const {
     defaultWatchMode,
     spoilerFreeMode,
+    notifyReactions,
+    notifyComments,
+    notifyFollows,
     setDefaultWatchMode,
     setSpoilerFreeMode,
+    setNotifyReactions,
+    setNotifyComments,
+    setNotifyFollows,
   } = usePreferencesStore();
   const [signingOut, setSigningOut] = useState(false);
   const queryClient = useQueryClient();
+  const [showFindFriends, setShowFindFriends] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ['settings-profile', user?.id],
@@ -200,6 +211,93 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* Notifications */}
+      <View className="px-4 pt-6">
+        <Text className="text-muted text-xs font-semibold uppercase tracking-wider mb-3">
+          Notifications
+        </Text>
+        <View className="bg-surface border border-border rounded-xl">
+          <View className="p-4 flex-row items-center justify-between border-b border-border">
+            <View className="flex-1 mr-4">
+              <Text className="text-white font-medium">Reactions</Text>
+              <Text className="text-muted text-xs mt-1">
+                When someone reacts to your log
+              </Text>
+            </View>
+            <Switch
+              value={notifyReactions}
+              onValueChange={setNotifyReactions}
+              trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+              thumbColor="#ffffff"
+            />
+          </View>
+          <View className="p-4 flex-row items-center justify-between border-b border-border">
+            <View className="flex-1 mr-4">
+              <Text className="text-white font-medium">Comments</Text>
+              <Text className="text-muted text-xs mt-1">
+                When someone comments on your log
+              </Text>
+            </View>
+            <Switch
+              value={notifyComments}
+              onValueChange={setNotifyComments}
+              trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+              thumbColor="#ffffff"
+            />
+          </View>
+          <View className="p-4 flex-row items-center justify-between">
+            <View className="flex-1 mr-4">
+              <Text className="text-white font-medium">New Followers</Text>
+              <Text className="text-muted text-xs mt-1">
+                When someone starts following you
+              </Text>
+            </View>
+            <Switch
+              value={notifyFollows}
+              onValueChange={setNotifyFollows}
+              trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
+              thumbColor="#ffffff"
+            />
+          </View>
+        </View>
+      </View>
+
+      {/* Social */}
+      <View className="px-4 pt-6">
+        <Text className="text-muted text-xs font-semibold uppercase tracking-wider mb-3">
+          Social
+        </Text>
+        <View className="bg-surface border border-border rounded-xl">
+          <TouchableOpacity
+            className="p-4 flex-row items-center justify-between border-b border-border"
+            onPress={() => {
+              const handle = profile?.handle ?? '';
+              const url = inviteUrl(handle);
+              const message = `Join me on NBA Letterbox! Track and rate NBA games together.\n${url}`;
+              RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
+            }}
+            activeOpacity={0.7}
+          >
+            <View className="flex-row items-center gap-3">
+              <Share2 size={18} color="#c9a84c" />
+              <Text className="text-white font-medium">Invite Friends</Text>
+            </View>
+            <ChevronRight size={16} color="#6b7280" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="p-4 flex-row items-center justify-between"
+            onPress={() => setShowFindFriends(true)}
+            activeOpacity={0.7}
+          >
+            <View className="flex-row items-center gap-3">
+              <Users size={18} color="#c9a84c" />
+              <Text className="text-white font-medium">Find Friends from Contacts</Text>
+            </View>
+            <ChevronRight size={16} color="#6b7280" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* About */}
       <View className="px-4 pt-6">
         <Text className="text-muted text-xs font-semibold uppercase tracking-wider mb-3">
@@ -229,6 +327,9 @@ export default function SettingsScreen() {
           )}
         </TouchableOpacity>
       </View>
+      {showFindFriends && (
+        <FindFriendsSheet onClose={() => setShowFindFriends(false)} />
+      )}
       </PageContainer>
     </ScrollView>
   );
