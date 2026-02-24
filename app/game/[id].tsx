@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
 import { getProvider } from '@/lib/providers';
-import type { BoxScoreColumnDef, TeamComparisonStatDef } from '@/lib/providers';
+import type { BoxScoreColumnDef, BoxScoreCategory, TeamComparisonStatDef } from '@/lib/providers';
 import { List, Play, Bookmark } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import GameCard from '@/components/GameCard';
@@ -189,7 +189,135 @@ function getBoxSortNumber(player: BoxScore, col: BoxScoreColumnDef): number {
 
 // ─── BoxScoreSection ────────────────────────────────────────────────────────
 
+function TeamToggle({ activeTeamId, game, onSelect }: { activeTeamId: string; game: GameWithTeams; onSelect: (id: string) => void }) {
+  const isAwayActive = activeTeamId === game.away_team_id;
+  return (
+    <View className="flex-row bg-surface rounded-xl mb-3 p-1 self-start">
+      <TouchableOpacity
+        className={`py-2.5 px-6 rounded-lg items-center ${isAwayActive ? 'bg-accent' : ''}`}
+        style={isAwayActive ? { backgroundColor: '#c9a84c' } : undefined}
+        onPress={() => onSelect(game.away_team_id)}
+        activeOpacity={0.7}
+      >
+        <Text className={`font-bold text-sm ${isAwayActive ? 'text-background' : 'text-muted'}`}>
+          {game.away_team.abbreviation}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        className={`py-2.5 px-6 rounded-lg items-center ${!isAwayActive ? 'bg-accent' : ''}`}
+        style={!isAwayActive ? { backgroundColor: '#c9a84c' } : undefined}
+        onPress={() => onSelect(game.home_team_id)}
+        activeOpacity={0.7}
+      >
+        <Text className={`font-bold text-sm ${!isAwayActive ? 'text-background' : 'text-muted'}`}>
+          {game.home_team.abbreviation}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+/** Category-based box score (NFL) — each category rendered as its own table */
+function CategoryBoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxScore[]; game: GameWithTeams; playerNameMap: Record<string, string> }) {
+  const router = useRouter();
+  const sport: Sport = game.sport ?? 'nba';
+  const provider = getProvider(sport);
+  const categories = provider.getBoxScoreCategories?.() ?? [];
+  const [activeTeamId, setActiveTeamId] = useState(game.away_team_id);
+
+  const teamPlayers = useMemo(
+    () => boxScores.filter((b) => b.team_id === activeTeamId),
+    [boxScores, activeTeamId],
+  );
+
+  if (boxScores.length === 0) {
+    return (
+      <View className="items-center py-8">
+        <Text className="text-muted text-sm">Box score not available</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View className="mx-4 mt-4">
+      <TeamToggle activeTeamId={activeTeamId} game={game} onSelect={setActiveTeamId} />
+
+      {categories.map((cat) => {
+        const players = teamPlayers
+          .filter((p) => {
+            const val = (p.stats ?? {})[cat.filterKey];
+            return val != null && val > 0;
+          })
+          .sort((a, b) => {
+            const aVal = (a.stats ?? {})[cat.sortKey] ?? 0;
+            const bVal = (b.stats ?? {})[cat.sortKey] ?? 0;
+            return (typeof bVal === 'number' ? bVal : 0) - (typeof aVal === 'number' ? aVal : 0);
+          });
+
+        if (players.length === 0) return null;
+
+        return (
+          <View key={cat.key} className="mb-4">
+            <Text className="text-white font-bold text-sm mb-2 uppercase tracking-wider">
+              {cat.label}
+            </Text>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View>
+                <View className="flex-row items-center pb-2 border-b border-border">
+                  <View className="w-28 pr-2">
+                    <Text className="text-muted text-xs font-semibold">Player</Text>
+                  </View>
+                  {cat.columns.map((col) => (
+                    <View key={col.key} style={{ width: col.width }} className="items-center">
+                      <Text className="text-xs font-semibold text-muted">{col.label}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {players.map((player) => {
+                  const playerId = playerNameMap[player.player_name];
+                  const NameWrapper = playerId ? TouchableOpacity : View;
+                  return (
+                    <View key={player.id} className="flex-row items-center py-2 border-b border-border">
+                      <NameWrapper
+                        className="w-28 pr-2"
+                        {...(playerId ? { onPress: () => router.push(`/player/${playerId}`), activeOpacity: 0.6 } : {})}
+                      >
+                        <Text className={`text-xs ${playerId ? 'text-accent' : 'text-white'}`} numberOfLines={1}>
+                          {player.player_name}
+                        </Text>
+                      </NameWrapper>
+                      {cat.columns.map((col) => (
+                        <View key={col.key} style={{ width: col.width }} className="items-center">
+                          <Text className="text-xs text-muted">
+                            {getBoxStatValue(player, col)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxScore[]; game: GameWithTeams; playerNameMap: Record<string, string> }) {
+  const sport: Sport = game.sport ?? 'nba';
+  const provider = getProvider(sport);
+  if (provider.getBoxScoreCategories) {
+    return <CategoryBoxScoreSection boxScores={boxScores} game={game} playerNameMap={playerNameMap} />;
+  }
+  return <FlatBoxScoreSection boxScores={boxScores} game={game} playerNameMap={playerNameMap} />;
+}
+
+/** Flat box score (NBA) — single table with all columns */
+function FlatBoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxScore[]; game: GameWithTeams; playerNameMap: Record<string, string> }) {
   const router = useRouter();
   const sport: Sport = game.sport ?? 'nba';
   const columns = getProvider(sport).getBoxScoreColumns();
@@ -238,8 +366,6 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
     }
   };
 
-  const isAwayActive = activeTeamId === game.away_team_id;
-
   const renderPlayerRow = (player: BoxScore) => {
     const playerId = playerNameMap[player.player_name];
     const NameWrapper = playerId ? TouchableOpacity : View;
@@ -266,29 +392,7 @@ function BoxScoreSection({ boxScores, game, playerNameMap }: { boxScores: BoxSco
 
   return (
     <View className="mx-4 mt-4">
-      {/* Team toggle */}
-      <View className="flex-row bg-surface rounded-xl mb-3 p-1 self-start">
-        <TouchableOpacity
-          className={`py-2.5 px-6 rounded-lg items-center ${isAwayActive ? 'bg-accent' : ''}`}
-          style={isAwayActive ? { backgroundColor: '#c9a84c' } : undefined}
-          onPress={() => setActiveTeamId(game.away_team_id)}
-          activeOpacity={0.7}
-        >
-          <Text className={`font-bold text-sm ${isAwayActive ? 'text-background' : 'text-muted'}`}>
-            {game.away_team.abbreviation}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className={`py-2.5 px-6 rounded-lg items-center ${!isAwayActive ? 'bg-accent' : ''}`}
-          style={!isAwayActive ? { backgroundColor: '#c9a84c' } : undefined}
-          onPress={() => setActiveTeamId(game.home_team_id)}
-          activeOpacity={0.7}
-        >
-          <Text className={`font-bold text-sm ${!isAwayActive ? 'text-background' : 'text-muted'}`}>
-            {game.home_team.abbreviation}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <TeamToggle activeTeamId={activeTeamId} game={game} onSelect={setActiveTeamId} />
 
       {/* Scrollable table */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>

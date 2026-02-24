@@ -35,6 +35,16 @@ export interface ProviderGame {
   season: number;
 }
 
+export interface BoxScoreCategory {
+  key: string;
+  label: string;
+  columns: BoxScoreColumnDef[];
+  /** Key in stats JSONB used to determine if a player belongs to this category */
+  filterKey: string;
+  /** Key used for default sort (descending) */
+  sortKey: string;
+}
+
 export interface SportProvider {
   sport: Sport;
 
@@ -56,8 +66,11 @@ export interface SportProvider {
   /** Human-readable label for a playoff round string */
   getPlayoffRoundLabel(round: string): string;
 
-  /** Column definitions for box score table */
+  /** Column definitions for box score table (flat, used by NBA) */
   getBoxScoreColumns(): BoxScoreColumnDef[];
+
+  /** Category-grouped box score columns (used by NFL). Returns null for sports that use flat layout. */
+  getBoxScoreCategories?(): BoxScoreCategory[];
 
   /** Stat definitions for team comparison section */
   getTeamComparisonStats(): TeamComparisonStatDef[];
