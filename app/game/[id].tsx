@@ -52,7 +52,7 @@ interface GameDetail {
   playerNameMap: Record<string, string>; // player_name -> player_id
   myPrediction: string | null; // predicted_winner_team_id
   predictionTally: PredictionTally;
-  myRanking: { position: number; total: number } | null;
+  myRanking: { position: number; total: number; sentiment: import('@/types/database').Sentiment | null; fanOf: import('@/types/database').FanOf | null } | null;
 }
 
 async function fetchGameDetail(gameId: string, userId: string): Promise<GameDetail> {
@@ -160,7 +160,7 @@ async function fetchGameDetail(gameId: string, userId: string): Promise<GameDeta
   }
 
   // Fetch ranking for this game
-  let myRanking: { position: number; total: number } | null = null;
+  let myRanking: Awaited<ReturnType<typeof fetchGameRanking>> = null;
   try {
     myRanking = await fetchGameRanking(userId, gameId);
   } catch {}
@@ -1112,7 +1112,7 @@ export default function GameDetailScreen() {
               >
                 {myRanking ? (
                   <>
-                    <RankBadge position={myRanking.position} total={myRanking.total} size="md" />
+                    <RankBadge position={myRanking.position} total={myRanking.total} fanOf={myRanking.fanOf} size="md" />
                     <Text className="text-muted text-sm">Re-rank this game</Text>
                   </>
                 ) : (

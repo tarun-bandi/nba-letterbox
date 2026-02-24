@@ -6,32 +6,32 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { X, Trophy } from 'lucide-react-native';
+import { X, Trophy, Heart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useToastStore } from '@/lib/store/toastStore';
 import {
-  shouldShowTriage,
-  triageRange,
+  sentimentRange,
   initComparison,
   advanceComparison,
   deriveScore,
   formatScore,
-  type TriageBucket,
+  detectFanOf,
   type ComparisonState,
-  type ComparisonGame,
 } from '@/lib/ranking';
 import {
   fetchRankedList,
   insertGameRanking,
   removeGameRanking,
+  updateLogRankingMeta,
+  fetchFavoriteTeamIds,
   type RankedGame,
 } from '@/lib/rankingService';
-import TriageScreen from './TriageScreen';
+import SentimentScreen from './SentimentScreen';
 import ComparisonScreen from './ComparisonScreen';
-import type { GameWithTeams } from '@/types/database';
+import type { GameWithTeams, Sentiment, FanOf } from '@/types/database';
 
-type FlowStep = 'loading' | 'triage' | 'comparison' | 'placement';
+type FlowStep = 'loading' | 'fan_confirm' | 'sentiment' | 'comparison' | 'placement';
 
 interface RankingFlowModalProps {
   visible: boolean;
@@ -58,8 +58,11 @@ export default function RankingFlowModal({
   const [compState, setCompState] = useState<ComparisonState | null>(null);
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [fanOf, setFanOf] = useState<FanOf>('neutral');
+  const [sentiment, setSentiment] = useState<Sentiment | null>(null);
+  const [detectedFanTeamName, setDetectedFanTeamName] = useState<string | null>(null);
 
-  // Load ranked list when modal opens
+  // Load ranked list and detect fan affiliation when modal opens
   useEffect(() => {
     if (!visible || !user) return;
 
@@ -71,29 +74,35 @@ export default function RankingFlowModal({
           await removeGameRanking(user.id, gameId);
         }
 
-        const list = await fetchRankedList(user.id);
+        const [list, favoriteTeamIds] = await Promise.all([
+          fetchRankedList(user.id),
+          fetchFavoriteTeamIds(user.id),
+        ]);
         if (cancelled) return;
 
         // Filter out the current game if somehow still in list
         const filtered = list.filter((r) => r.game_id !== gameId);
         setRankedGames(filtered);
 
-        const count = filtered.length;
+        // Detect fan affiliation
+        const detected = detectFanOf(game, favoriteTeamIds);
+        setFanOf(detected);
 
-        if (count === 0) {
-          // First game — auto insert at #1
-          setInsertPosition(1);
-          setStep('placement');
-        } else if (count === 1) {
-          // Exactly 1 comparison needed
-          setCompState(initComparison(1, 1));
-          setStep('comparison');
-        } else if (shouldShowTriage(count)) {
-          setStep('triage');
+        if (detected !== 'neutral') {
+          // Determine the fan team name for display
+          let teamName: string;
+          if (detected === 'both') {
+            teamName = `${game.home_team.abbreviation}/${game.away_team.abbreviation}`;
+          } else if (detected === 'home') {
+            teamName = game.home_team.full_name;
+          } else {
+            teamName = game.away_team.full_name;
+          }
+          setDetectedFanTeamName(teamName);
+          setStep('fan_confirm');
         } else {
-          // < 6 games, skip triage
-          setCompState(initComparison(1, count));
-          setStep('comparison');
+          setDetectedFanTeamName(null);
+          setStep('sentiment');
         }
       } catch (e) {
         if (!cancelled) {
@@ -106,11 +115,41 @@ export default function RankingFlowModal({
     return () => { cancelled = true; };
   }, [visible, user, gameId, isRerank]);
 
-  const handleTriage = useCallback((bucket: TriageBucket) => {
+  const handleFanConfirm = useCallback((watchAsNeutral: boolean) => {
+    if (watchAsNeutral) {
+      setFanOf('neutral');
+      setDetectedFanTeamName(null);
+    }
+    setStep('sentiment');
+  }, []);
+
+  const handleSentiment = useCallback((selected: Sentiment) => {
+    setSentiment(selected);
+
     const count = rankedGames.length;
-    const [low, high] = triageRange(bucket, count);
-    setCompState(initComparison(low, high));
-    setStep('comparison');
+
+    if (count === 0) {
+      // First game — auto insert at #1
+      setInsertPosition(1);
+      setStep('placement');
+    } else if (count === 1) {
+      // Exactly 1 comparison needed
+      setCompState(initComparison(1, 1));
+      setStep('comparison');
+    } else {
+      // Always narrow by sentiment
+      const [low, high] = sentimentRange(selected, count);
+      // Clamp to valid range
+      const clampedLow = Math.max(1, Math.min(low, count));
+      const clampedHigh = Math.max(clampedLow, Math.min(high, count));
+      if (clampedLow === clampedHigh) {
+        setInsertPosition(clampedLow);
+        setStep('placement');
+      } else {
+        setCompState(initComparison(clampedLow, clampedHigh));
+        setStep('comparison');
+      }
+    }
   }, [rankedGames]);
 
   const handleComparison = useCallback((choice: 'new' | 'existing') => {
@@ -128,10 +167,13 @@ export default function RankingFlowModal({
   }, [compState]);
 
   const handleConfirm = useCallback(async () => {
-    if (!user || insertPosition === null) return;
+    if (!user || insertPosition === null || !sentiment) return;
 
     setSaving(true);
     try {
+      // Save sentiment and fan_of metadata first
+      await updateLogRankingMeta(user.id, gameId, sentiment, fanOf);
+      // Then insert the ranking position
       await insertGameRanking(user.id, gameId, insertPosition);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.show(`Ranked #${insertPosition}!`);
@@ -141,7 +183,7 @@ export default function RankingFlowModal({
     } finally {
       setSaving(false);
     }
-  }, [user, gameId, insertPosition, onComplete]);
+  }, [user, gameId, insertPosition, sentiment, fanOf, onComplete]);
 
   const handleSkip = useCallback(() => {
     onClose();
@@ -155,11 +197,15 @@ export default function RankingFlowModal({
       setCompState(null);
       setInsertPosition(null);
       setSaving(false);
+      setFanOf('neutral');
+      setSentiment(null);
+      setDetectedFanTeamName(null);
     }
   }, [visible]);
 
   const totalAfterInsert = rankedGames.length + 1;
-  const score = insertPosition !== null ? deriveScore(insertPosition, totalAfterInsert) : 0;
+  const score = insertPosition !== null ? deriveScore(insertPosition, totalAfterInsert, fanOf) : 0;
+  const isFanGame = fanOf !== 'neutral';
 
   // Get the current comparison game from ranked list
   const comparisonGame = compState
@@ -202,9 +248,50 @@ export default function RankingFlowModal({
             </View>
           )}
 
-          {/* Triage */}
-          {step === 'triage' && (
-            <TriageScreen onSelect={handleTriage} onSkip={handleSkip} />
+          {/* Fan confirmation */}
+          {step === 'fan_confirm' && detectedFanTeamName && (
+            <View className="px-6 pt-4 pb-8">
+              <View className="items-center mb-6">
+                <View className="w-14 h-14 rounded-full bg-accent/20 items-center justify-center mb-3">
+                  <Heart size={28} color="#c9a84c" />
+                </View>
+                <Text className="text-white text-lg font-bold text-center mb-1">
+                  {detectedFanTeamName} fan?
+                </Text>
+                <Text className="text-muted text-sm text-center">
+                  Fan games get a slight score boost
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                className="bg-accent rounded-xl py-4 px-8 items-center w-full mb-3"
+                onPress={() => handleFanConfirm(false)}
+                activeOpacity={0.8}
+              >
+                <Text className="text-background font-semibold text-base">
+                  Yes, watching as a fan
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className="bg-surface border border-border rounded-xl py-4 px-8 items-center w-full"
+                onPress={() => handleFanConfirm(true)}
+                activeOpacity={0.7}
+              >
+                <Text className="text-muted font-semibold text-base">
+                  Neutral viewer
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Sentiment */}
+          {step === 'sentiment' && (
+            <SentimentScreen
+              onSelect={handleSentiment}
+              onSkip={handleSkip}
+              fanTeamName={isFanGame ? detectedFanTeamName : null}
+            />
           )}
 
           {/* Comparison */}
@@ -232,9 +319,14 @@ export default function RankingFlowModal({
               <Text className="text-muted text-sm mb-1">
                 of {totalAfterInsert} ranked games
               </Text>
-              <Text className="text-accent text-3xl font-bold mb-6">
-                {formatScore(score)}
-              </Text>
+              <View className="flex-row items-center gap-1.5 mb-6">
+                <Text className="text-accent text-3xl font-bold">
+                  {formatScore(score)}
+                </Text>
+                {isFanGame && (
+                  <Heart size={16} color="#c9a84c" fill="#c9a84c" />
+                )}
+              </View>
 
               <TouchableOpacity
                 className="bg-accent rounded-xl py-4 px-8 items-center w-full mb-3"

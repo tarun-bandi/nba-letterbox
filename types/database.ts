@@ -12,6 +12,8 @@ export type GameStatus = 'scheduled' | 'live' | 'final';
 export type WatchMode = 'live' | 'replay' | 'condensed' | 'highlights';
 export type PlayoffRound = 'first_round' | 'conf_semis' | 'conf_finals' | 'finals';
 export type ReactionType = 'like' | 'fire' | 'ice' | 'skull' | 'mind_blown' | 'respect';
+export type Sentiment = 'loved' | 'good' | 'okay' | 'bad';
+export type FanOf = 'home' | 'away' | 'both' | 'neutral';
 
 export interface PeriodScores {
   home: number[];
@@ -274,6 +276,9 @@ export interface Database {
           watch_mode: WatchMode | null;
           review: string | null;
           has_spoilers: boolean;
+          position: number | null;
+          sentiment: Sentiment | null;
+          fan_of: FanOf | null;
           logged_at: string;
           updated_at: string;
         };
@@ -285,6 +290,9 @@ export interface Database {
           watch_mode?: WatchMode | null;
           review?: string | null;
           has_spoilers?: boolean;
+          position?: number | null;
+          sentiment?: Sentiment | null;
+          fan_of?: FanOf | null;
           logged_at?: string;
           updated_at?: string;
         };
@@ -293,6 +301,9 @@ export interface Database {
           watch_mode?: WatchMode | null;
           review?: string | null;
           has_spoilers?: boolean;
+          position?: number | null;
+          sentiment?: Sentiment | null;
+          fan_of?: FanOf | null;
           updated_at?: string;
         };
       };
@@ -569,26 +580,6 @@ export interface Database {
           updated_at?: string;
         };
       };
-      game_rankings: {
-        Row: {
-          user_id: string;
-          game_id: string;
-          position: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          game_id: string;
-          position: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          position?: number;
-          updated_at?: string;
-        };
-      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -616,8 +607,6 @@ export type ListItem = Database['public']['Tables']['list_items']['Row'];
 export type BoxScore = Database['public']['Tables']['box_scores']['Row'];
 export type Watchlist = Database['public']['Tables']['watchlist']['Row'];
 export type FavoritePlayer = Database['public']['Tables']['user_favorite_players']['Row'];
-export type GameRanking = Database['public']['Tables']['game_rankings']['Row'];
-
 // Joined types used in UI
 export type GameWithTeams = Game & {
   home_team: Team;
@@ -637,6 +626,5 @@ export type GameLogWithGame = GameLog & {
   my_reaction?: ReactionType | null;
   tags?: LogTag[];
   comment_count?: number;
-  rank_position?: number;
   rank_total?: number;
 };
