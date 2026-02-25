@@ -40,6 +40,46 @@ interface PredictionTally {
   [teamId: string]: number;
 }
 
+const PRIMETIME_MAP: Record<string, string> = {
+  NBC: 'Sunday Night Football',
+  ESPN: 'Monday Night Football',
+  ABC: 'Monday Night Football',
+  'Prime Video': 'Thursday Night Football',
+  NFLN: 'Thursday Night Football',
+};
+
+const PLAYOFF_ROUND_LABELS: Record<string, string> = {
+  wild_card: 'Wild Card',
+  divisional: 'Divisional',
+  conf_championship: 'Championship',
+  super_bowl: 'Super Bowl',
+};
+
+function getGameDetailLabel(game: GameWithTeams): string | null {
+  if (game.sport === 'nba') return null; // NBA already shows date in the center
+
+  // NFL playoff
+  if (game.postseason && game.playoff_round) {
+    const roundLabel = PLAYOFF_ROUND_LABELS[game.playoff_round] ?? game.playoff_round;
+    if (game.playoff_round === 'super_bowl') return 'Super Bowl';
+    const conference = game.home_team?.conference ?? '';
+    return conference ? `${conference} ${roundLabel}` : roundLabel;
+  }
+
+  // NFL primetime
+  if (game.broadcast) {
+    const primetime = PRIMETIME_MAP[game.broadcast];
+    if (primetime) return primetime;
+  }
+
+  // NFL regular season
+  if (game.week) {
+    return `Week ${game.week}, ${game.season?.year ?? ''}`.trim();
+  }
+
+  return null;
+}
+
 interface GameDetail {
   game: GameWithTeams;
   logs: GameLogWithGame[];
@@ -983,6 +1023,13 @@ export default function GameDetailScreen() {
         <PageContainer>
         {/* Score Card */}
         <View className="bg-surface border-b border-border mx-4 mt-4 rounded-2xl p-6">
+          {/* Game label (week/primetime/playoff) */}
+          {(() => {
+            const label = getGameDetailLabel(game);
+            return label ? (
+              <Text className="text-muted text-xs text-center mb-3">{label}</Text>
+            ) : null;
+          })()}
           <View className="flex-row justify-between items-center">
             {/* Away Team */}
             <View className="flex-1 items-center">
@@ -1024,6 +1071,14 @@ export default function GameDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Team records */}
+          {game.away_team_record && game.home_team_record && (
+            <View className="flex-row justify-between px-8 mt-1">
+              <Text className="text-muted text-xs">({game.away_team_record})</Text>
+              <Text className="text-muted text-xs">({game.home_team_record})</Text>
+            </View>
+          )}
 
         </View>
 
