@@ -3,6 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 
 const ESPN_NFL_BASE = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
 
+const NFL_WEEK_TO_ROUND: Record<number, string> = {
+  1: 'wild_card',
+  2: 'divisional',
+  3: 'conf_championship',
+  4: 'super_bowl',
+  5: 'super_bowl',
+};
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function mapStatus(statusDetail: string): 'scheduled' | 'live' | 'final' {
@@ -115,6 +123,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const statusDetail = comp.status?.type?.detail ?? '';
       const isPostseason = (event.season?.type ?? 0) === 3;
+      const weekNumber: number = event.week?.number ?? 0;
+      const playoffRound = isPostseason ? (NFL_WEEK_TO_ROUND[weekNumber] ?? null) : null;
 
       return [{
         provider: 'espn' as const,
@@ -129,6 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         period: comp.status?.period ?? null,
         time: comp.status?.displayClock ?? null,
         postseason: isPostseason,
+        playoff_round: playoffRound,
         sport: 'nfl' as const,
       }];
     });

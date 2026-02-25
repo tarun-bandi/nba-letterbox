@@ -103,6 +103,20 @@ export async function removeGameRanking(
   if (error) throw error;
 }
 
+/** Move a game to a new position (drag-to-reorder). Calls the RPC to shift others. */
+export async function moveGameRanking(
+  userId: string,
+  gameId: string,
+  newPosition: number,
+): Promise<void> {
+  const { error } = await supabase.rpc('move_game_ranking', {
+    p_user_id: userId,
+    p_game_id: gameId,
+    p_new_position: newPosition,
+  });
+  if (error) throw error;
+}
+
 /** Fetch comparison games: a subset of the ranked list for the binary search */
 export async function fetchComparisonGames(
   userId: string,

@@ -26,6 +26,14 @@ const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 const ESPN_NFL_BASE = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
 
+const NFL_WEEK_TO_ROUND: Record<number, string> = {
+  1: 'wild_card',
+  2: 'divisional',
+  3: 'conf_championship',
+  4: 'super_bowl',
+  5: 'super_bowl',
+};
+
 // ─── CLI Args ───────────────────────────────────────────────────────────────
 
 function parseArgs() {
@@ -205,6 +213,8 @@ async function seedGames(season: number) {
 
         const statusDetail = comp.status?.type?.detail ?? '';
 
+        const playoffRound = seasonType === 3 ? (NFL_WEEK_TO_ROUND[week] ?? null) : null;
+
         return [{
           provider: 'espn' as const,
           provider_game_id: parseInt(event.id, 10),
@@ -218,6 +228,7 @@ async function seedGames(season: number) {
           period: comp.status?.period ?? null,
           time: comp.status?.displayClock ?? null,
           postseason: seasonType === 3,
+          playoff_round: playoffRound,
           sport: 'nfl' as const,
         }];
       });
