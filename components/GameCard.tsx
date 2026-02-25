@@ -47,6 +47,51 @@ function formatDate(dateStr: string) {
   });
 }
 
+const PRIMETIME_MAP: Record<string, string> = {
+  NBC: 'Sunday Night Football',
+  ESPN: 'Monday Night Football',
+  ABC: 'Monday Night Football',
+  'Prime Video': 'Thursday Night Football',
+  NFLN: 'Thursday Night Football',
+};
+
+const PLAYOFF_ROUND_LABELS: Record<string, string> = {
+  wild_card: 'Wild Card',
+  divisional: 'Divisional',
+  conf_championship: 'Championship',
+  super_bowl: 'Super Bowl',
+};
+
+function getGameLabel(game: GameLogWithGame['game']): string | null {
+  if (!game) return null;
+
+  // NBA: show formatted date
+  if (game.sport === 'nba') {
+    return formatDate(game.game_date_utc);
+  }
+
+  // NFL playoff
+  if (game.postseason && game.playoff_round) {
+    const roundLabel = PLAYOFF_ROUND_LABELS[game.playoff_round] ?? game.playoff_round;
+    if (game.playoff_round === 'super_bowl') return 'Super Bowl';
+    const conference = game.home_team?.conference ?? '';
+    return conference ? `${conference} ${roundLabel}` : roundLabel;
+  }
+
+  // NFL primetime
+  if (game.broadcast) {
+    const primetime = PRIMETIME_MAP[game.broadcast];
+    if (primetime) return primetime;
+  }
+
+  // NFL regular season
+  if (game.week) {
+    return `Week ${game.week}, ${game.season?.year ?? ''}`.trim();
+  }
+
+  return null;
+}
+
 /** Get top 2 reactions sorted by count (excluding 'like') */
 function getTopReactions(reactions?: Record<ReactionType, number>): { type: ReactionType; count: number }[] {
   if (!reactions) return [];
@@ -252,8 +297,16 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
         <Text style={{ fontSize: 72 }}>{'\uD83D\uDD25'}</Text>
       </Animated.View>
 
+        {/* Game label (date/week/primetime) */}
+        {(() => {
+          const label = getGameLabel(game);
+          return label ? (
+            <Text className="text-muted text-xs text-center mb-1">{label}</Text>
+          ) : null;
+        })()}
+
         {/* Matchup header strip */}
-        <View className="flex-row items-center justify-center gap-2 mb-3">
+        <View className="flex-row items-center justify-center gap-2 mb-1">
           <TeamLogo abbreviation={game.away_team.abbreviation} sport={game.sport ?? 'nba'} size={24} />
           <Text className="text-white font-bold text-sm">
             {game.away_team.abbreviation}
@@ -288,6 +341,17 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
             </View>
           )}
         </View>
+
+        {/* Team records */}
+        {game.away_team_record && game.home_team_record && (
+          <View className="flex-row items-center justify-center gap-2 mb-2">
+            <View style={{ width: 24 }} />
+            <Text className="text-muted text-xs">({game.away_team_record})</Text>
+            <View style={{ flex: 1 }} />
+            <Text className="text-muted text-xs">({game.home_team_record})</Text>
+            <View style={{ width: 24 }} />
+          </View>
+        )}
 
         {/* User info (feed mode) */}
         {showUser && log.user_profile && (

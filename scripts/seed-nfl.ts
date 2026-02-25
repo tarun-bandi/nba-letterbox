@@ -215,6 +215,16 @@ async function seedGames(season: number) {
 
         const playoffRound = seasonType === 3 ? (NFL_WEEK_TO_ROUND[week] ?? null) : null;
 
+        // Extract broadcast info
+        const broadcast: string | null =
+          comp.geoBroadcasts?.[0]?.media?.shortName ??
+          comp.broadcasts?.[0]?.names?.[0] ??
+          null;
+
+        // Extract team records
+        const homeRecord: string | null = home.records?.[0]?.summary ?? null;
+        const awayRecord: string | null = away.records?.[0]?.summary ?? null;
+
         return [{
           provider: 'espn' as const,
           provider_game_id: parseInt(event.id, 10),
@@ -230,6 +240,10 @@ async function seedGames(season: number) {
           postseason: seasonType === 3,
           playoff_round: playoffRound,
           sport: 'nfl' as const,
+          week,
+          broadcast,
+          home_team_record: homeRecord,
+          away_team_record: awayRecord,
         }];
       });
 

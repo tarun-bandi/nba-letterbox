@@ -126,6 +126,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const weekNumber: number = event.week?.number ?? 0;
       const playoffRound = isPostseason ? (NFL_WEEK_TO_ROUND[weekNumber] ?? null) : null;
 
+      // Extract broadcast info
+      const broadcast: string | null =
+        comp.geoBroadcasts?.[0]?.media?.shortName ??
+        comp.broadcasts?.[0]?.names?.[0] ??
+        null;
+
+      // Extract team records
+      const homeRecord: string | null = home.records?.[0]?.summary ?? null;
+      const awayRecord: string | null = away.records?.[0]?.summary ?? null;
+
       return [{
         provider: 'espn' as const,
         provider_game_id: parseInt(event.id, 10),
@@ -141,6 +151,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         postseason: isPostseason,
         playoff_round: playoffRound,
         sport: 'nfl' as const,
+        week: weekNumber || null,
+        broadcast,
+        home_team_record: homeRecord,
+        away_team_record: awayRecord,
       }];
     });
 
