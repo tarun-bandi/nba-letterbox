@@ -29,12 +29,18 @@ interface BdlGamesResponse {
 function mapStatus(status: string): 'scheduled' | 'live' | 'final' {
   const s = status.toLowerCase();
   if (s === 'final' || s.startsWith('final/')) return 'final';
-  if (/\bq\d/.test(s) || s.includes('half') || s.includes('ot')) return 'live';
+  if (/\bq\d/.test(s) || s.includes('half') || /\bot/i.test(s)) return 'live';
   return 'scheduled';
 }
 
 function getTodayET(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+
+function getYesterdayET(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
 function getCurrentSeasonYear(): number {
@@ -111,9 +117,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const seasonId = seasonData!.id;
 
-    // 3. Fetch today's games from BDL
+    // 3. Fetch yesterday's + today's games from BDL
     const today = getTodayET();
-    const bdlRes = await fetch(`${BDL_BASE}/games?dates[]=${today}&per_page=100`, {
+    const yesterday = getYesterdayET();
+    const bdlRes = await fetch(`${BDL_BASE}/games?dates[]=${yesterday}&dates[]=${today}&per_page=100`, {
       headers: { Authorization: bdlApiKey, 'Content-Type': 'application/json' },
     });
 
@@ -125,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: bdlGames } = (await bdlRes.json()) as BdlGamesResponse;
 
     if (bdlGames.length === 0) {
-      return res.status(200).json({ message: 'No games today', date: today, upserted: 0 });
+      return res.status(200).json({ message: 'No games found', dates: [yesterday, today], upserted: 0 });
     }
 
     // 4. Map to DB rows
@@ -170,7 +177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       message: 'OK',
-      date: today,
+      dates: [yesterday, today],
       season: seasonYear,
       upserted: rows.length,
       skipped: skipped.length,
