@@ -1,5 +1,5 @@
 /**
- * NBA Letterbox — BallDontLie ingestion script
+ * NBA Letterbox — ESPN ingestion script
  *
  * Usage:
  *   npm run seed                     # teams + default (2024) season
@@ -7,7 +7,7 @@
  *   npm run seed:games -- --season 2025   # games only (skip teams), for daily cron
  *   npm run seed:games -- --season 2025 --days 3   # only games from last 3 days
  *
- * Requires: .env with SUPABASE_SERVICE_ROLE_KEY, EXPO_PUBLIC_SUPABASE_URL, BALLDONTLIE_API_KEY
+ * Requires: .env with SUPABASE_SERVICE_ROLE_KEY, EXPO_PUBLIC_SUPABASE_URL
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -17,26 +17,62 @@ dotenv.config();
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const bdlApiKey = process.env.BALLDONTLIE_API_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
-  console.error('❌ Missing EXPO_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
+  console.error('Missing EXPO_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
   process.exit(1);
 }
 
-if (!bdlApiKey) {
-  console.error('❌ Missing BALLDONTLIE_API_KEY in .env');
-  process.exit(1);
-}
-
-// Use service role to bypass RLS — untyped client since we control the shapes directly
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
-const BDL_HEADERS = {
-  Authorization: bdlApiKey,
-  'Content-Type': 'application/json',
-};
+const ESPN_SCOREBOARD_URL =
+  'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
+
+// ─── ESPN Types ─────────────────────────────────────────────────────────────
+
+interface EspnCompetitor {
+  id: string;
+  homeAway: 'home' | 'away';
+  team: { id: string; abbreviation: string };
+  score: string;
+}
+
+interface EspnStatus {
+  clock: number;
+  displayClock: string;
+  period: number;
+  type: {
+    state: 'pre' | 'in' | 'post';
+    completed: boolean;
+  };
+}
+
+interface EspnBroadcast {
+  names: string[];
+}
+
+interface EspnVenue {
+  fullName: string;
+}
+
+interface EspnCompetition {
+  competitors: EspnCompetitor[];
+  status: EspnStatus;
+  broadcasts: EspnBroadcast[];
+  venue: EspnVenue;
+}
+
+interface EspnEvent {
+  id: string;
+  date: string;
+  competitions: EspnCompetition[];
+  status: EspnStatus;
+  season: { year: number; type: number };
+}
+
+interface EspnScoreboard {
+  events: EspnEvent[];
+}
 
 // ─── CLI Args ───────────────────────────────────────────────────────────────
 
@@ -63,79 +99,46 @@ function parseArgs() {
 
 const cliArgs = parseArgs();
 
-// Maps BDL team ID → internal UUID
-const teamIdMap = new Map<number, string>();
+// Maps abbreviation → internal UUID
+const teamAbbrMap = new Map<string, string>();
 
 // Maps season year → internal UUID
 const seasonIdMap = new Map<number, string>();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function bdlGet<T>(path: string, retries = 8): Promise<T> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    const res = await fetch(`${BDL_BASE}${path}`, { headers: BDL_HEADERS });
-    if (res.status === 429) {
-      const wait = attempt * 15000; // 15s, 30s, 45s, 60s, etc.
-      console.log(`  ⏳ Rate limited, waiting ${wait / 1000}s (attempt ${attempt}/${retries})…`);
-      await sleep(wait);
-      continue;
-    }
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`BDL ${path} → ${res.status}: ${text}`);
-    }
-    return res.json() as Promise<T>;
-  }
-  throw new Error(`BDL ${path} → 429: Still rate limited after ${retries} retries`);
-}
-
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
-// ─── Teams ───────────────────────────────────────────────────────────────────
-
-interface BdlTeam {
-  id: number;
-  abbreviation: string;
-  city: string;
-  conference: string;
-  division: string;
-  full_name: string;
-  name: string;
+function mapStatus(state: string, completed: boolean): 'scheduled' | 'live' | 'final' {
+  if (state === 'pre') return 'scheduled';
+  if (state === 'in') return 'live';
+  if (state === 'post' || completed) return 'final';
+  return 'scheduled';
 }
 
+function formatDate(date: Date): string {
+  return date.toISOString().split('T')[0].replace(/-/g, '');
+}
+
+async function fetchEspnScoreboard(dateStr: string): Promise<EspnEvent[]> {
+  const res = await fetch(`${ESPN_SCOREBOARD_URL}?dates=${dateStr}`);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`ESPN ${dateStr} -> ${res.status}: ${text}`);
+  }
+  const json: EspnScoreboard = await res.json();
+  return json.events ?? [];
+}
+
+// ─── Teams ───────────────────────────────────────────────────────────────────
+
 async function seedTeams() {
-  console.log('🏀 Fetching teams from BallDontLie…');
-  const { data: bdlTeams } = await bdlGet<{ data: BdlTeam[] }>('/teams?per_page=100');
-
-  const rows = bdlTeams.map((t) => ({
-    provider: 'balldontlie' as const,
-    provider_team_id: t.id,
-    abbreviation: t.abbreviation,
-    city: t.city,
-    conference: t.conference || null,
-    division: t.division || null,
-    full_name: t.full_name,
-    name: t.name,
-  }));
-
-  const { data, error } = await supabase
-    .from('teams')
-    .upsert(rows, { onConflict: 'provider,provider_team_id' })
-    .select('id, provider_team_id')
-    .returns<{ id: string; provider_team_id: number }[]>();
-
-  if (error) {
-    console.error('❌ Teams upsert failed:', error.message);
-    process.exit(1);
-  }
-
-  for (const row of data ?? []) {
-    teamIdMap.set(row.provider_team_id, row.id);
-  }
-
-  console.log(`✅ Upserted ${rows.length} teams`);
+  // Teams are already seeded via BDL or manually — just load from DB
+  console.log('Loading teams from DB...');
+  await loadTeamMap();
+  console.log(`Loaded ${teamAbbrMap.size} teams`);
 }
 
 // ─── Seasons ─────────────────────────────────────────────────────────────────
@@ -151,7 +154,7 @@ async function ensureSeason(year: number): Promise<string> {
     .single();
 
   if (error) {
-    console.error(`❌ Season upsert failed for ${year}:`, error.message);
+    console.error(`Season upsert failed for ${year}:`, error.message);
     process.exit(1);
   }
 
@@ -161,123 +164,111 @@ async function ensureSeason(year: number): Promise<string> {
 
 // ─── Games ───────────────────────────────────────────────────────────────────
 
-interface BdlGame {
-  id: number;
-  date: string;
-  home_team: { id: number };
-  visitor_team: { id: number };
-  home_team_score: number;
-  visitor_team_score: number;
-  status: string;
-  period: number;
-  time: string;
-  postseason: boolean;
-  season: number;
-}
-
-interface BdlGamesResponse {
-  data: BdlGame[];
-  meta: {
-    next_cursor?: number;
-    per_page: number;
-  };
-}
-
-function mapStatus(status: string): 'scheduled' | 'live' | 'final' {
-  const s = status.toLowerCase();
-  if (s === 'final' || s.startsWith('final/')) return 'final';
-  // Quarter indicators (e.g. "Q1", "Q3 5:20") or halftime mean the game is live.
-  // Avoid matching scheduled times like "7:00 PM ET" which also contain colons.
-  if (/\bq\d/.test(s) || s.includes('half') || s.includes('ot')) return 'live';
-  return 'scheduled';
-}
-
 async function seedGames(season: number, days: number | null = null) {
-  let dateRange = '';
+  // ESPN scoreboard only returns one day at a time, so iterate over date range.
+  // NBA season runs roughly Oct to Jun (~270 days).
+  const seasonStartYear = season;
+  let startDate: Date;
+  let endDate: Date;
+
   if (days !== null) {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - days);
-    const startStr = start.toISOString().split('T')[0];
-    const endStr = end.toISOString().split('T')[0];
-    dateRange = `&start_date=${startStr}&end_date=${endStr}`;
-    console.log(`🎮 Fetching games for season ${season} from ${startStr} to ${endStr}…`);
+    endDate = new Date();
+    startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    console.log(`Fetching games from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}...`);
   } else {
-    console.log(`🎮 Fetching all games for season ${season}…`);
+    // Full season: Oct 1 of season year to Jun 30 of next year
+    startDate = new Date(seasonStartYear, 9, 1); // Oct 1
+    endDate = new Date(seasonStartYear + 1, 5, 30); // Jun 30
+    // Don't go past today
+    const today = new Date();
+    if (endDate > today) endDate = today;
+    console.log(`Fetching all games for season ${season} (${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]})...`);
   }
 
-  let cursor: number | undefined;
+  const seasonId = await ensureSeason(season);
   let totalInserted = 0;
-  let page = 1;
+  let totalDays = 0;
 
-  while (true) {
-    const cursorParam = cursor ? `&cursor=${cursor}` : '';
-    const url = `/games?seasons[]=${season}&per_page=100${cursorParam}${dateRange}`;
+  // Count total days for progress
+  const totalDaysInRange = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    const response = await bdlGet<BdlGamesResponse>(url);
-    const { data: bdlGames, meta } = response;
+  const current = new Date(startDate);
+  while (current <= endDate) {
+    const dateStr = formatDate(current);
+    totalDays++;
 
-    if (bdlGames.length === 0) break;
+    const events = await fetchEspnScoreboard(dateStr);
 
-    const seasonId = await ensureSeason(season);
+    if (events.length > 0) {
+      const rows = events.flatMap((event) => {
+        const comp = event.competitions[0];
+        if (!comp) return [];
 
-    const rows = bdlGames.flatMap((g) => {
-      const homeTeamId = teamIdMap.get(g.home_team.id);
-      const awayTeamId = teamIdMap.get(g.visitor_team.id);
+        const home = comp.competitors.find((c) => c.homeAway === 'home');
+        const away = comp.competitors.find((c) => c.homeAway === 'away');
+        if (!home || !away) return [];
 
-      if (!homeTeamId || !awayTeamId) {
-        console.warn(`  ⚠ Skipping game ${g.id}: unknown team ID`);
-        return [];
+        const homeTeamId = teamAbbrMap.get(home.team.abbreviation.toUpperCase());
+        const awayTeamId = teamAbbrMap.get(away.team.abbreviation.toUpperCase());
+
+        if (!homeTeamId || !awayTeamId) {
+          console.warn(`  Skipping game ${event.id}: unknown team ${home.team.abbreviation} or ${away.team.abbreviation}`);
+          return [];
+        }
+
+        const status = event.status;
+        const broadcast = comp.broadcasts?.[0]?.names?.join(', ') ?? null;
+        const arena = comp.venue?.fullName ?? null;
+
+        return [
+          {
+            provider: 'espn' as const,
+            provider_game_id: parseInt(event.id, 10),
+            season_id: seasonId,
+            home_team_id: homeTeamId,
+            away_team_id: awayTeamId,
+            home_team_score: parseInt(home.score, 10) || null,
+            away_team_score: parseInt(away.score, 10) || null,
+            game_date_utc: new Date(event.date).toISOString(),
+            status: mapStatus(status.type.state, status.type.completed),
+            period: status.period || null,
+            time: status.displayClock || null,
+            postseason: event.season.type === 3,
+            broadcast,
+            arena,
+          },
+        ];
+      });
+
+      if (rows.length > 0) {
+        const { error } = await supabase
+          .from('games')
+          .upsert(rows, { onConflict: 'provider,provider_game_id' });
+
+        if (error) {
+          console.error(`Games upsert failed for ${dateStr}:`, error.message);
+          process.exit(1);
+        }
+
+        totalInserted += rows.length;
       }
-
-      return [
-        {
-          provider: 'balldontlie' as const,
-          provider_game_id: g.id,
-          season_id: seasonId,
-          home_team_id: homeTeamId,
-          away_team_id: awayTeamId,
-          home_team_score: g.home_team_score || null,
-          away_team_score: g.visitor_team_score || null,
-          game_date_utc: (g as any).datetime ? new Date((g as any).datetime).toISOString() : new Date(g.date).toISOString(),
-          status: mapStatus(g.status),
-          period: g.period || null,
-          time: g.time || null,
-          postseason: g.postseason ?? false,
-        },
-      ];
-    });
-
-    if (rows.length > 0) {
-      const { error } = await supabase
-        .from('games')
-        .upsert(rows, { onConflict: 'provider,provider_game_id' });
-
-      if (error) {
-        console.error(`❌ Games upsert failed (page ${page}):`, error.message);
-        process.exit(1);
-      }
-
-      totalInserted += rows.length;
     }
 
-    // ~1300 games in a season → ~13 pages of 100
-    const estTotal = 1300;
-    const pct = Math.min(100, Math.round((totalInserted / estTotal) * 100));
+    // Progress bar
+    const pct = Math.min(100, Math.round((totalDays / totalDaysInRange) * 100));
     const filled = Math.round(pct / 5);
-    const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
-    process.stdout.write(`\r  [${bar}] ${pct}% — ${totalInserted} games (page ${page})`);
+    const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(20 - filled);
+    process.stdout.write(`\r  [${bar}] ${pct}% - ${totalInserted} games (day ${totalDays}/${totalDaysInRange})`);
 
-    if (!meta.next_cursor) break;
-    cursor = meta.next_cursor;
-    page++;
+    current.setDate(current.getDate() + 1);
 
-    // Respect BDL rate limits — free tier is ~5 req/min
-    await sleep(3000);
+    // Small delay to be nice to ESPN
+    await sleep(200);
   }
 
-  console.log(''); // newline after progress bar
-  console.log(`✅ Upserted ${totalInserted} games for season ${season}`);
+  console.log('');
+  console.log(`Upserted ${totalInserted} games for season ${season}`);
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -285,41 +276,40 @@ async function seedGames(season: number, days: number | null = null) {
 async function loadTeamMap() {
   const { data, error } = await supabase
     .from('teams')
-    .select('id, provider_team_id')
-    .returns<{ id: string; provider_team_id: number }[]>();
+    .select('id, abbreviation')
+    .returns<{ id: string; abbreviation: string }[]>();
 
   if (error) {
-    console.error('❌ Failed to load team map:', error.message);
+    console.error('Failed to load team map:', error.message);
     process.exit(1);
   }
 
   for (const row of data ?? []) {
-    teamIdMap.set(row.provider_team_id, row.id);
+    teamAbbrMap.set(row.abbreviation.toUpperCase(), row.id);
   }
 }
 
 async function main() {
   const { season, gamesOnly, days } = cliArgs;
-  console.log('🚀 NBA Letterbox seed script starting…\n');
+  console.log('NBA Letterbox seed script (ESPN) starting...\n');
 
   if (gamesOnly) {
-    // Skip team ingestion — just load existing team ID mapping from DB
     await loadTeamMap();
-    if (teamIdMap.size === 0) {
-      console.error('❌ No teams found in DB. Run full seed first (without --games-only).');
+    if (teamAbbrMap.size === 0) {
+      console.error('No teams found in DB. Run full seed first (without --games-only).');
       process.exit(1);
     }
-    console.log(`✅ Loaded ${teamIdMap.size} teams from DB`);
+    console.log(`Loaded ${teamAbbrMap.size} teams from DB`);
   } else {
     await seedTeams();
   }
 
   await seedGames(season, days);
 
-  console.log('\n🎉 Seed complete!');
+  console.log('\nSeed complete!');
 }
 
 main().catch((err) => {
-  console.error('💥 Unhandled error:', err);
+  console.error('Unhandled error:', err);
   process.exit(1);
 });

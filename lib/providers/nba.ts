@@ -1,8 +1,10 @@
 import {
-  fetchTodaysGamesFromBDL,
-  mapStatus as bdlMapStatus,
-  formatLiveStatus as bdlFormatLiveStatus,
-} from '@/lib/balldontlie';
+  fetchTodaysGamesFromESPN,
+  mapStatus as espnMapStatus,
+  formatLiveStatus as espnFormatLiveStatus,
+  getHomeCompetitor,
+  getAwayCompetitor,
+} from '@/lib/espn';
 import type { SportProvider, ProviderGame, BoxScoreColumnDef, TeamComparisonStatDef } from './types';
 
 const ESPN_ABBREVIATION_MAP: Record<string, string> = {
@@ -45,25 +47,36 @@ export const nbaProvider: SportProvider = {
   sport: 'nba',
 
   async fetchTodaysGames(): Promise<ProviderGame[]> {
-    const bdlGames = await fetchTodaysGamesFromBDL();
-    return bdlGames.map((g) => ({
-      id: g.id,
-      date: g.date,
-      homeTeamProviderId: g.home_team.id,
-      awayTeamProviderId: g.visitor_team.id,
-      homeScore: g.home_team_score,
-      awayScore: g.visitor_team_score,
-      status: g.status,
-      period: g.period,
-      clock: g.time,
-      postseason: g.postseason,
-      datetime: (g as any).datetime ?? null,
-      season: g.season,
-    }));
+    const events = await fetchTodaysGamesFromESPN();
+    return events.map((event) => {
+      const home = getHomeCompetitor(event);
+      const away = getAwayCompetitor(event);
+      const status = event.status;
+      const state = status.type.state;
+
+      return {
+        id: parseInt(event.id, 10),
+        date: event.date,
+        homeTeamProviderId: home?.team.abbreviation ?? '',
+        awayTeamProviderId: away?.team.abbreviation ?? '',
+        homeScore: parseInt(home?.score ?? '0', 10),
+        awayScore: parseInt(away?.score ?? '0', 10),
+        status: state,
+        period: status.period,
+        clock: status.displayClock,
+        postseason: event.season.type === 3,
+        datetime: event.date,
+        season: event.season.year,
+      };
+    });
   },
 
-  mapStatus: bdlMapStatus,
-  formatLiveStatus: bdlFormatLiveStatus,
+  mapStatus(status: string): 'scheduled' | 'live' | 'final' {
+    // ESPN state strings: 'pre', 'in', 'post'
+    return espnMapStatus(status as 'pre' | 'in' | 'post', status === 'post');
+  },
+
+  formatLiveStatus: espnFormatLiveStatus,
 
   getTeamLogoUrl(abbreviation: string): string {
     const espnAbbr = ESPN_ABBREVIATION_MAP[abbreviation.toUpperCase()] ?? abbreviation.toLowerCase();

@@ -1,49 +1,76 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
+const ESPN_SCOREBOARD_URL =
+  'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-interface BdlGame {
-  id: number;
-  date: string;
-  datetime: string | null;
-  home_team: { id: number };
-  visitor_team: { id: number };
-  home_team_score: number;
-  visitor_team_score: number;
-  status: string;
-  period: number;
-  time: string;
-  postseason: boolean;
-  season: number;
+interface EspnCompetitor {
+  id: string;
+  homeAway: 'home' | 'away';
+  team: { id: string; abbreviation: string };
+  score: string;
 }
 
-interface BdlGamesResponse {
-  data: BdlGame[];
-  meta: { next_cursor?: number; per_page: number };
+interface EspnStatus {
+  clock: number;
+  displayClock: string;
+  period: number;
+  type: {
+    state: 'pre' | 'in' | 'post';
+    completed: boolean;
+  };
+}
+
+interface EspnBroadcast {
+  names: string[];
+}
+
+interface EspnVenue {
+  fullName: string;
+}
+
+interface EspnCompetition {
+  competitors: EspnCompetitor[];
+  status: EspnStatus;
+  broadcasts: EspnBroadcast[];
+  venue: EspnVenue;
+}
+
+interface EspnEvent {
+  id: string;
+  date: string;
+  competitions: EspnCompetition[];
+  status: EspnStatus;
+  season: { year: number; type: number };
+}
+
+interface EspnScoreboard {
+  events: EspnEvent[];
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function mapStatus(status: string): 'scheduled' | 'live' | 'final' {
-  const s = status.toLowerCase();
-  if (s === 'final' || s.startsWith('final/')) return 'final';
-  // BDL uses a datetime string (e.g. "2026-02-25T00:00:00Z") for scheduled games
-  if (s.startsWith('20')) return 'scheduled';
-  if (/\bq\d/.test(s) || s.includes('half') || /\bot/i.test(s)) return 'live';
+function mapStatus(state: string, completed: boolean): 'scheduled' | 'live' | 'final' {
+  if (state === 'pre') return 'scheduled';
+  if (state === 'in') return 'live';
+  if (state === 'post' || completed) return 'final';
   return 'scheduled';
 }
 
 function getTodayET(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  return new Date()
+    .toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+    .replace(/-/g, '');
 }
 
 function getYesterdayET(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  return d
+    .toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+    .replace(/-/g, '');
 }
 
 function getCurrentSeasonYear(): number {
@@ -56,14 +83,22 @@ function getCurrentSeasonYear(): number {
     now.toLocaleDateString('en-US', { timeZone: 'America/New_York', year: 'numeric' }),
     10,
   );
-  // NBA season starts in October — Oct-Dec belongs to current year's season
   return etMonth >= 10 ? etYear : etYear - 1;
+}
+
+async function fetchEspnScoreboard(dateStr: string): Promise<EspnEvent[]> {
+  const res = await fetch(`${ESPN_SCOREBOARD_URL}?dates=${dateStr}`);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`ESPN API error ${res.status}: ${text}`);
+  }
+  const json: EspnScoreboard = await res.json();
+  return json.events ?? [];
 }
 
 // ─── Handler ────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Auth: Vercel cron sends `Authorization: Bearer <CRON_SECRET>`
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
     const authHeader = req.headers.authorization;
@@ -74,34 +109,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const bdlApiKey = process.env.BALLDONTLIE_API_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
     return res.status(500).json({ error: 'Missing Supabase env vars' });
-  }
-  if (!bdlApiKey) {
-    return res.status(500).json({ error: 'Missing BALLDONTLIE_API_KEY' });
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    // 1. Load team map: provider_team_id → internal UUID
+    // 1. Load team map: abbreviation → internal UUID
     const { data: teams, error: teamsErr } = await supabase
       .from('teams')
-      .select('id, provider_team_id')
-      .returns<{ id: string; provider_team_id: number }[]>();
+      .select('id, abbreviation')
+      .returns<{ id: string; abbreviation: string }[]>();
 
     if (teamsErr) {
       return res.status(500).json({ error: `Failed to load teams: ${teamsErr.message}` });
     }
 
-    const teamIdMap = new Map<number, string>();
+    const teamAbbrMap = new Map<string, string>();
     for (const row of teams ?? []) {
-      teamIdMap.set(row.provider_team_id, row.id);
+      teamAbbrMap.set(row.abbreviation.toUpperCase(), row.id);
     }
 
-    if (teamIdMap.size === 0) {
+    if (teamAbbrMap.size === 0) {
       return res.status(500).json({ error: 'No teams in DB. Run full seed first.' });
     }
 
@@ -120,49 +151,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const seasonId = seasonData!.id;
 
-    // 3. Fetch yesterday's + today's games from BDL
+    // 3. Fetch yesterday's + today's games from ESPN
     const today = getTodayET();
     const yesterday = getYesterdayET();
-    const bdlRes = await fetch(`${BDL_BASE}/games?dates[]=${yesterday}&dates[]=${today}&per_page=100`, {
-      headers: { Authorization: bdlApiKey, 'Content-Type': 'application/json' },
+    const [yesterdayEvents, todayEvents] = await Promise.all([
+      fetchEspnScoreboard(yesterday),
+      fetchEspnScoreboard(today),
+    ]);
+
+    const allEvents = [...yesterdayEvents, ...todayEvents];
+
+    // Deduplicate by event ID
+    const seen = new Set<string>();
+    const events = allEvents.filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
     });
 
-    if (!bdlRes.ok) {
-      const text = await bdlRes.text();
-      return res.status(502).json({ error: `BDL API error ${bdlRes.status}: ${text}` });
-    }
-
-    const { data: bdlGames } = (await bdlRes.json()) as BdlGamesResponse;
-
-    if (bdlGames.length === 0) {
+    if (events.length === 0) {
       return res.status(200).json({ message: 'No games found', dates: [yesterday, today], upserted: 0 });
     }
 
     // 4. Map to DB rows
-    const skipped: number[] = [];
-    const rows = bdlGames.flatMap((g) => {
-      const homeTeamId = teamIdMap.get(g.home_team.id);
-      const awayTeamId = teamIdMap.get(g.visitor_team.id);
+    const skipped: string[] = [];
+    const rows = events.flatMap((event) => {
+      const comp = event.competitions[0];
+      if (!comp) return [];
+
+      const home = comp.competitors.find((c) => c.homeAway === 'home');
+      const away = comp.competitors.find((c) => c.homeAway === 'away');
+      if (!home || !away) return [];
+
+      const homeTeamId = teamAbbrMap.get(home.team.abbreviation.toUpperCase());
+      const awayTeamId = teamAbbrMap.get(away.team.abbreviation.toUpperCase());
 
       if (!homeTeamId || !awayTeamId) {
-        skipped.push(g.id);
+        skipped.push(event.id);
         return [];
       }
 
+      const status = event.status;
+      const broadcast = comp.broadcasts?.[0]?.names?.join(', ') ?? null;
+      const arena = comp.venue?.fullName ?? null;
+
       return [
         {
-          provider: 'balldontlie' as const,
-          provider_game_id: g.id,
+          provider: 'espn' as const,
+          provider_game_id: parseInt(event.id, 10),
           season_id: seasonId,
           home_team_id: homeTeamId,
           away_team_id: awayTeamId,
-          home_team_score: g.home_team_score || null,
-          away_team_score: g.visitor_team_score || null,
-          game_date_utc: g.datetime ? new Date(g.datetime).toISOString() : new Date(g.date).toISOString(),
-          status: mapStatus(g.status),
-          period: g.period || null,
-          time: g.time || null,
-          postseason: g.postseason ?? false,
+          home_team_score: parseInt(home.score, 10) || null,
+          away_team_score: parseInt(away.score, 10) || null,
+          game_date_utc: new Date(event.date).toISOString(),
+          status: mapStatus(status.type.state, status.type.completed),
+          period: status.period || null,
+          time: status.displayClock || null,
+          postseason: event.season.type === 3,
+          broadcast,
+          arena,
         },
       ];
     });
