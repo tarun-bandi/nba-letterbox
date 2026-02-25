@@ -299,7 +299,7 @@ export default function SearchScreen() {
       </View>
 
       {/* Mode toggle */}
-      <View className="flex-row px-4 pb-2 gap-2">
+      <View className="flex-row px-4 py-3 gap-2">
         {(['games', 'users', 'players'] as const).map((mode) => (
           <TouchableOpacity
             key={mode}
@@ -349,7 +349,7 @@ export default function SearchScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              className="px-4 py-2"
+              className="px-4 pb-3 pt-1"
               contentContainerStyle={{ gap: 6, alignItems: 'center' }}
               style={{ flexGrow: 0 }}
             >
