@@ -66,10 +66,13 @@ function getGameDetailLabel(game: GameWithTeams): string | null {
     return conference ? `${conference} ${roundLabel}` : roundLabel;
   }
 
-  // NFL primetime
+  // NFL primetime — include week & year for context
   if (game.broadcast) {
     const primetime = PRIMETIME_MAP[game.broadcast];
-    if (primetime) return primetime;
+    if (primetime) {
+      const suffix = game.week ? ` · Week ${game.week}, ${game.season?.year ?? ''}`.trim() : '';
+      return `${primetime}${suffix}`;
+    }
   }
 
   // NFL regular season
