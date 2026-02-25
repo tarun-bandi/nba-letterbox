@@ -65,7 +65,7 @@ function ComparisonCard({
 
         {/* Teams */}
         <View className="flex-row items-center gap-2 mb-2">
-          <TeamLogo abbreviation={game.away_team.abbreviation} size={28} />
+          <TeamLogo abbreviation={game.away_team.abbreviation} size={28} sport={game.sport} />
           <Text className="text-white font-bold text-sm">
             {game.away_team.abbreviation}
           </Text>
@@ -74,7 +74,7 @@ function ComparisonCard({
         <Text className="text-muted text-xs mb-2">@</Text>
 
         <View className="flex-row items-center gap-2 mb-3">
-          <TeamLogo abbreviation={game.home_team.abbreviation} size={28} />
+          <TeamLogo abbreviation={game.home_team.abbreviation} size={28} sport={game.sport} />
           <Text className="text-white font-bold text-sm">
             {game.home_team.abbreviation}
           </Text>
