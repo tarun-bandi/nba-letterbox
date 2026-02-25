@@ -20,10 +20,10 @@ function getTodayDateStr(): string {
 
 async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
   const today = getTodayDateStr();
-  // Games span UTC midnight — use wide window (covers NFL early games + late NBA tips)
+  // 24-hour window anchored at 10:00 UTC (~5–6 AM ET) — no games at that hour
   const [y, m, d] = today.split('-').map(Number);
   const startUTC = new Date(Date.UTC(y, m - 1, d, 10, 0, 0)).toISOString();
-  const endUTC = new Date(Date.UTC(y, m - 1, d + 1, 12, 0, 0)).toISOString();
+  const endUTC = new Date(Date.UTC(y, m - 1, d + 1, 10, 0, 0)).toISOString();
 
   const [gamesRes, favRes, predsRes] = await Promise.all([
     supabase
