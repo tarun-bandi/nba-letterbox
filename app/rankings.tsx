@@ -216,9 +216,9 @@ export default function RankingsScreen() {
           )
         }
       />
-      {/* Offscreen share card for capture */}
+      {/* Hidden share card for capture — use opacity:0 so it stays rendered */}
       {data && data.length > 0 && (
-        <View style={{ position: 'absolute', left: -9999 }} pointerEvents="none">
+        <View style={{ position: 'absolute', opacity: 0 }} pointerEvents="none" collapsable={false}>
           <RankingsShareCard ref={shareCardRef} games={data} />
         </View>
       )}
