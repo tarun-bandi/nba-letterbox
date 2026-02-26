@@ -15,11 +15,7 @@ interface TodaysGamesData {
 
 /** Return today's date as YYYY-MM-DD in the user's local timezone. */
 function getTodayDateStr(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return toLocalDateStr(new Date());
 }
 
 /** Return local midnight → next local midnight as UTC timestamps. */
@@ -33,8 +29,44 @@ function getLocalDayUtcWindow(): { startUTC: string; endUTC: string } {
   };
 }
 
+function toLocalDateStr(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function toUTCDateStr(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * ESPN sometimes emits date-only values (00:00Z, and older rows may use 12:00Z).
+ * For those, treat the UTC calendar day as authoritative to avoid local timezone rollover.
+ */
+function isDateOnlyUtcTimestamp(date: Date): boolean {
+  const h = date.getUTCHours();
+  const m = date.getUTCMinutes();
+  const s = date.getUTCSeconds();
+  const ms = date.getUTCMilliseconds();
+  return (h === 0 || h === 12) && m === 0 && s === 0 && ms === 0;
+}
+
+function getGameScheduleDateStr(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '';
+  return isDateOnlyUtcTimestamp(d) ? toUTCDateStr(d) : toLocalDateStr(d);
+}
+
 async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
+  const todayDateStr = getTodayDateStr();
   const { startUTC, endUTC } = getLocalDayUtcWindow();
+  // Fetch a wider range and do a deterministic local "today" filter below.
+  const queryStartUTC = new Date(new Date(startUTC).getTime() - 12 * 60 * 60 * 1000).toISOString();
+  const queryEndUTC = new Date(new Date(endUTC).getTime() + 12 * 60 * 60 * 1000).toISOString();
 
   const [gamesRes, favRes, predsRes] = await Promise.all([
     supabase
@@ -45,8 +77,8 @@ async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
         away_team:teams!games_away_team_id_fkey (*),
         season:seasons (*)
       `)
-      .gte('game_date_utc', startUTC)
-      .lt('game_date_utc', endUTC)
+      .gte('game_date_utc', queryStartUTC)
+      .lt('game_date_utc', queryEndUTC)
       .order('game_date_utc', { ascending: true }),
     supabase
       .from('user_favorite_teams')
@@ -68,17 +100,24 @@ async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
     (predsRes.data ?? []).map((p) => p.game_id),
   );
 
+  const games = ((gamesRes.data ?? []) as unknown as GameWithTeams[])
+    .filter((game) => getGameScheduleDateStr(game.game_date_utc) === todayDateStr);
+
   return {
-    games: (gamesRes.data ?? []) as unknown as GameWithTeams[],
+    games,
     favoriteTeamIds,
     predictedGameIds,
   };
 }
 
-function formatTipoff(dateStr: string): string {
-  const d = new Date(dateStr);
-  // Games stored at noon UTC are date-only (no real tipoff time from API)
-  if (d.getUTCHours() === 12 && d.getUTCMinutes() === 0) return 'TBD';
+function formatTipoff(game: GameWithTeams): string {
+  const d = new Date(game.game_date_utc);
+  if (Number.isNaN(d.getTime())) return game.time ?? 'TBD';
+
+  if (isDateOnlyUtcTimestamp(d)) {
+    return game.time ?? 'TBD';
+  }
+
   return d.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
@@ -193,7 +232,7 @@ export default function TodaysGames() {
                   </Text>
                 ) : (
                   <Text className="text-muted text-xs">
-                    {formatTipoff(game.game_date_utc)}
+                    {formatTipoff(game)}
                   </Text>
                 )}
               </View>
