@@ -4,6 +4,8 @@ import { useTeams } from '@/hooks/useTeams';
 import TeamLogo from '@/components/TeamLogo';
 import type { Team, Sport } from '@/types/database';
 
+const NBA_CONFERENCE_ORDER = ['Eastern', 'Western'];
+
 const NFL_DIVISION_ORDER = [
   'AFC East',
   'AFC North',
@@ -46,10 +48,21 @@ export default function TeamGrid({ query, onSelectTeam, excludeTeamId }: TeamGri
     );
   });
 
-  const showGrouped = activeSport === 'nfl' && !q;
+  const showGrouped = !q;
 
-  const groupedByDivision = useMemo(() => {
+  const groupedSections = useMemo(() => {
     if (!showGrouped) return [];
+    if (activeSport === 'nba') {
+      const map = new Map<string, Team[]>();
+      for (const team of filtered) {
+        const conf = team.conference ?? 'Other';
+        if (!map.has(conf)) map.set(conf, []);
+        map.get(conf)!.push(team);
+      }
+      return NBA_CONFERENCE_ORDER
+        .filter((conf) => map.has(conf))
+        .map((conf) => ({ title: conf, teams: map.get(conf)! }));
+    }
     const map = new Map<string, Team[]>();
     for (const team of filtered) {
       const div = team.division ?? 'Other';
@@ -58,8 +71,8 @@ export default function TeamGrid({ query, onSelectTeam, excludeTeamId }: TeamGri
     }
     return NFL_DIVISION_ORDER
       .filter((div) => map.has(div))
-      .map((div) => ({ division: div, teams: map.get(div)! }));
-  }, [showGrouped, filtered]);
+      .map((div) => ({ title: div, teams: map.get(div)! }));
+  }, [showGrouped, activeSport, filtered]);
 
   const renderTeamItem = (item: Team) => (
     <TouchableOpacity
@@ -107,10 +120,10 @@ export default function TeamGrid({ query, onSelectTeam, excludeTeamId }: TeamGri
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 16 }}
         >
-          {groupedByDivision.map((section) => (
-            <View key={section.division}>
+          {groupedSections.map((section) => (
+            <View key={section.title}>
               <Text className="text-muted text-xs font-semibold px-4 pt-3 pb-1">
-                {section.division}
+                {section.title}
               </Text>
               <View className="flex-row flex-wrap" style={{ gap: 8, paddingHorizontal: 16, paddingTop: 4 }}>
                 {section.teams.map(renderTeamItem)}
