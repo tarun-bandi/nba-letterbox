@@ -1,34 +1,34 @@
 const NBA_TEAM_COLORS: Record<string, string> = {
-  ATL: '#E03A3E',
-  BOS: '#007A33',
-  BKN: '#000000',
-  CHA: '#1D1160',
-  CHI: '#CE1141',
-  CLE: '#860038',
-  DAL: '#00538C',
-  DEN: '#0E2240',
-  DET: '#C8102E',
-  GSW: '#1D428A',
-  HOU: '#CE1141',
-  IND: '#002D62',
-  LAC: '#C8102E',
-  LAL: '#552583',
-  MEM: '#5D76A9',
-  MIA: '#98002E',
-  MIL: '#00471B',
-  MIN: '#0C2340',
-  NOP: '#0C2340',
-  NYK: '#006BB6',
-  OKC: '#007AC1',
-  ORL: '#0077C0',
-  PHI: '#006BB6',
-  PHX: '#1D1160',
-  POR: '#E03A3E',
-  SAC: '#5A2D81',
-  SAS: '#C4CED4',
-  TOR: '#CE1141',
-  UTA: '#002B5C',
-  WAS: '#002B5C',
+  ATL: '#E03A3E',   // Hawks red
+  BOS: '#007A33',   // Celtics green
+  BKN: '#FFFFFF',   // Nets white (black is invisible on dark bg)
+  CHA: '#00788C',   // Hornets teal
+  CHI: '#CE1141',   // Bulls red
+  CLE: '#860038',   // Cavaliers wine
+  DAL: '#00538C',   // Mavericks blue
+  DEN: '#0E2240',   // Nuggets navy
+  DET: '#C8102E',   // Pistons red
+  GSW: '#1D428A',   // Warriors royal blue
+  HOU: '#CE1141',   // Rockets red
+  IND: '#002D62',   // Pacers navy
+  LAC: '#C8102E',   // Clippers red
+  LAL: '#552583',   // Lakers purple
+  MEM: '#5D76A9',   // Grizzlies beale street blue
+  MIA: '#98002E',   // Heat red
+  MIL: '#00471B',   // Bucks green
+  MIN: '#0C2340',   // Timberwolves navy
+  NOP: '#B4975A',   // Pelicans gold
+  NYK: '#F58426',   // Knicks orange
+  OKC: '#007AC1',   // Thunder blue
+  ORL: '#0077C0',   // Magic blue
+  PHI: '#006BB6',   // 76ers blue
+  PHX: '#E56020',   // Suns orange
+  POR: '#E03A3E',   // Trail Blazers red
+  SAC: '#5A2D81',   // Kings purple
+  SAS: '#C4CED4',   // Spurs silver
+  TOR: '#CE1141',   // Raptors red
+  UTA: '#F9A01B',   // Jazz yellow
+  WAS: '#002B5C',   // Wizards navy
 };
 
 const FALLBACK_PALETTE = [
