@@ -7,6 +7,9 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Space Grotesk', 'system-ui', '-apple-system', 'sans-serif'],
+      },
       colors: {
         background: '#0a0a0a',
         surface: '#1a1a1a',

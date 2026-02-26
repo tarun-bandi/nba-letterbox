@@ -108,10 +108,10 @@ export function ensureTextContrast(hex: string): string {
   const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 
   // If luminance is already bright enough, return as-is
-  if (luminance >= 0.08) return hex;
+  if (luminance >= 0.18) return hex;
 
   // Blend toward white until we hit the target luminance
-  const target = 0.08;
+  const target = 0.18;
   let lo = 0;
   let hi = 1;
   for (let i = 0; i < 16; i++) {
