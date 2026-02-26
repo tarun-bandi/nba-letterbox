@@ -137,7 +137,7 @@ export default function CommentsSheet({
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View
-            className="bg-surface rounded-t-3xl border-t border-border"
+            className="bg-surface rounded-t-3xl border-t border-border max-w-screen-md w-full self-center"
             style={{ maxHeight: '70%' }}
           >
             <View className="items-center pt-3 pb-1">
