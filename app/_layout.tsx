@@ -236,6 +236,15 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="diary"
+              options={{
+                headerShown: true,
+                title: 'Diary',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
+            <Stack.Screen
               name="settings"
               options={{
                 headerShown: true,

@@ -1,45 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
-import TeamLogo from './TeamLogo';
 
 interface DiaryEntry {
-  game_id: string;
   logged_at: string;
-  home_abbr: string;
-  away_abbr: string;
-}
-
-async function fetchDiaryMonth(userId: string, year: number, month: number): Promise<DiaryEntry[]> {
-  const startDate = new Date(year, month, 1).toISOString();
-  const endDate = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
-
-  const { data, error } = await supabase
-    .from('game_logs')
-    .select(`
-      game_id,
-      logged_at,
-      game:games (
-        home_team:teams!games_home_team_id_fkey (abbreviation),
-        away_team:teams!games_away_team_id_fkey (abbreviation)
-      )
-    `)
-    .eq('user_id', userId)
-    .gte('logged_at', startDate)
-    .lte('logged_at', endDate)
-    .order('logged_at', { ascending: true });
-
-  if (error) throw error;
-
-  return ((data ?? []) as any[]).map((d) => ({
-    game_id: d.game_id,
-    logged_at: d.logged_at,
-    home_abbr: d.game?.home_team?.abbreviation ?? '',
-    away_abbr: d.game?.away_team?.abbreviation ?? '',
-  }));
 }
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -48,19 +14,53 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-interface DiaryCalendarProps {
-  userId: string;
+function toLocalDateStr(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
-export default function DiaryCalendar({ userId }: DiaryCalendarProps) {
-  const router = useRouter();
+function toLocalMiddayDateStr(year: number, month: number, day: number): string {
+  return toLocalDateStr(new Date(year, month, day, 12, 0, 0, 0));
+}
+
+async function fetchDiaryMonth(userId: string, year: number, month: number): Promise<DiaryEntry[]> {
+  const startDate = new Date(year, month, 1, 0, 0, 0, 0).toISOString();
+  const endDate = new Date(year, month + 1, 1, 0, 0, 0, 0).toISOString();
+
+  const { data, error } = await supabase
+    .from('game_logs')
+    .select('logged_at')
+    .eq('user_id', userId)
+    .gte('logged_at', startDate)
+    .lt('logged_at', endDate)
+    .order('logged_at', { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []) as DiaryEntry[];
+}
+
+interface DiaryCalendarProps {
+  userId: string;
+  selectedDate?: string;
+  onSelectDate?: (dateStr: string) => void;
+}
+
+export default function DiaryCalendar({
+  userId,
+  selectedDate,
+  onSelectDate,
+}: DiaryCalendarProps) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
 
   const { data: entries } = useQuery({
-    queryKey: ['diary', userId, year, month],
+    queryKey: ['diary-month', userId, year, month],
     queryFn: () => fetchDiaryMonth(userId, year, month),
+    enabled: !!userId,
   });
 
   const goBack = () => {
@@ -81,18 +81,23 @@ export default function DiaryCalendar({ userId }: DiaryCalendarProps) {
     }
   };
 
-  // Build a map of day-of-month → entries
   const dayMap = useMemo(() => {
-    const map: Record<number, DiaryEntry[]> = {};
+    const map: Record<number, number> = {};
     for (const entry of entries ?? []) {
       const day = new Date(entry.logged_at).getDate();
-      if (!map[day]) map[day] = [];
-      map[day].push(entry);
+      map[day] = (map[day] ?? 0) + 1;
     }
     return map;
   }, [entries]);
 
-  // Calendar grid
+  const selectedDay = useMemo(() => {
+    if (!selectedDate) return null;
+    const selected = new Date(`${selectedDate}T12:00:00`);
+    if (Number.isNaN(selected.getTime())) return null;
+    if (selected.getFullYear() !== year || selected.getMonth() !== month) return null;
+    return selected.getDate();
+  }, [selectedDate, year, month]);
+
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = now.getDate();
@@ -101,12 +106,25 @@ export default function DiaryCalendar({ userId }: DiaryCalendarProps) {
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstDayOfMonth; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  // Pad to complete last row
   while (cells.length % 7 !== 0) cells.push(null);
+
+  const renderDots = (count: number) => {
+    const dots = Math.min(3, count);
+    return (
+      <View className="flex-row gap-0.5 mt-0.5">
+        {Array.from({ length: dots }).map((_, idx) => (
+          <View
+            key={idx}
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ backgroundColor: '#c9a84c' }}
+          />
+        ))}
+      </View>
+    );
+  };
 
   return (
     <View className="bg-surface border border-border rounded-2xl p-4">
-      {/* Header */}
       <View className="flex-row items-center justify-between mb-3">
         <TouchableOpacity onPress={goBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ChevronLeft size={20} color="#c9a84c" />
@@ -119,7 +137,6 @@ export default function DiaryCalendar({ userId }: DiaryCalendarProps) {
         </TouchableOpacity>
       </View>
 
-      {/* Day labels */}
       <View className="flex-row mb-1">
         {DAYS_OF_WEEK.map((d) => (
           <View key={d} className="flex-1 items-center">
@@ -128,94 +145,57 @@ export default function DiaryCalendar({ userId }: DiaryCalendarProps) {
         ))}
       </View>
 
-      {/* Grid */}
       <View className="flex-row flex-wrap">
         {cells.map((day, i) => {
           if (day === null) {
             return <View key={`empty-${i}`} className="w-[14.28%] aspect-square" />;
           }
 
-          const dayEntries = dayMap[day];
-          const hasEntries = dayEntries && dayEntries.length > 0;
+          const entryCount = dayMap[day] ?? 0;
+          const hasEntries = entryCount > 0;
           const isToday = isCurrentMonth && day === today;
+          const isSelected = selectedDay === day;
+          const dayDateStr = toLocalMiddayDateStr(year, month, day);
 
-          const cell = (
+          const dayBubble = (
             <View
-              key={day}
-              className="w-[14.28%] aspect-square items-center justify-center"
+              className={`w-9 h-9 rounded-full items-center justify-center ${
+                isSelected
+                  ? 'border border-accent bg-accent/20'
+                  : isToday
+                    ? 'border border-accent/50'
+                    : ''
+              }`}
             >
-              <View
-                className={`w-9 h-9 rounded-full items-center justify-center ${
-                  isToday ? 'border border-accent/50' : ''
+              <Text
+                className={`text-xs ${
+                  hasEntries ? 'text-white font-semibold' : 'text-muted'
                 }`}
               >
-                <Text
-                  className={`text-xs ${
-                    hasEntries ? 'text-white font-semibold' : 'text-muted'
-                  }`}
-                >
-                  {day}
-                </Text>
-                {hasEntries && (
-                  <View className="flex-row gap-0.5 mt-0.5">
-                    {dayEntries.length <= 2 ? (
-                      dayEntries.map((entry, j) => (
-                        <View
-                          key={j}
-                          className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: '#c9a84c' }}
-                        />
-                      ))
-                    ) : (
-                      <>
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
-                      </>
-                    )}
-                  </View>
-                )}
-              </View>
+                {day}
+              </Text>
+              {hasEntries && renderDots(entryCount)}
             </View>
           );
 
-          if (hasEntries) {
+          if (!hasEntries) {
             return (
-              <TouchableOpacity
-                key={day}
-                className="w-[14.28%] aspect-square items-center justify-center"
-                onPress={() => router.push(`/game/${dayEntries[0].game_id}`)}
-                activeOpacity={0.6}
-              >
-                <View
-                  className={`w-9 h-9 rounded-full items-center justify-center ${
-                    isToday ? 'border border-accent/50' : ''
-                  }`}
-                >
-                  <Text className="text-white text-xs font-semibold">{day}</Text>
-                  <View className="flex-row gap-0.5 mt-0.5">
-                    {dayEntries.length <= 2 ? (
-                      dayEntries.map((entry, j) => (
-                        <View
-                          key={j}
-                          className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: '#c9a84c' }}
-                        />
-                      ))
-                    ) : (
-                      <>
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
-                        <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c9a84c' }} />
-                      </>
-                    )}
-                  </View>
-                </View>
-              </TouchableOpacity>
+              <View key={day} className="w-[14.28%] aspect-square items-center justify-center">
+                {dayBubble}
+              </View>
             );
           }
 
-          return cell;
+          return (
+            <TouchableOpacity
+              key={day}
+              className="w-[14.28%] aspect-square items-center justify-center"
+              onPress={() => onSelectDate?.(dayDateStr)}
+              activeOpacity={0.6}
+            >
+              {dayBubble}
+            </TouchableOpacity>
+          );
         })}
       </View>
     </View>
