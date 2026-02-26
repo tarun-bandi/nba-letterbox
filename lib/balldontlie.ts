@@ -32,7 +32,7 @@ interface BdlGamesResponse {
 export function mapStatus(status: string): 'scheduled' | 'live' | 'final' {
   const s = status.toLowerCase();
   if (s === 'final' || s.startsWith('final/')) return 'final';
-  if (/\bq\d/.test(s) || /qtr/.test(s) || /\d(st|nd|rd|th)\s+qtr/i.test(s) || s.includes('half') || s.includes('ot')) return 'live';
+  if (/\bq\d/.test(s) || /qtr/.test(s) || /\d(st|nd|rd|th)\s+qtr/i.test(s) || s.includes('half') || /\bot/i.test(s)) return 'live';
   return 'scheduled';
 }
 

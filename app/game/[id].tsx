@@ -1160,12 +1160,15 @@ export default function GameDetailScreen() {
         ) : (
           <View className="mx-4 mt-4 bg-surface border border-border rounded-xl p-4">
             <Text className="text-muted text-xs text-center mb-3">
-              Tipoff at{' '}
-              {new Date(game.game_date_utc).toLocaleTimeString('en-US', {
-                hour: 'numeric',
-                minute: '2-digit',
-                timeZone: 'America/New_York',
-              })}{' '}ET
+              {(() => {
+                const d = new Date(game.game_date_utc);
+                if (d.getUTCHours() === 12 && d.getUTCMinutes() === 0) return 'Tipoff time TBD';
+                return `Tipoff at ${d.toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  timeZone: 'America/New_York',
+                })} ET`;
+              })()}
             </Text>
             <Text className="text-white font-semibold text-center mb-3">
               Who wins?
