@@ -25,6 +25,7 @@ import RankBadge from './RankBadge';
 import ReactionPicker, { REACTION_EMOJI, REACTION_CONFIG } from './ReactionPicker';
 import { gameUrl } from '@/lib/urls';
 import { getTeamAccentColor, withAlpha, ensureTextContrast } from '@/lib/teamColors';
+import { useTilt3D } from '@/hooks/useTilt3D';
 import type { GameLogWithGame, ReactionType } from '@/types/database';
 
 interface GameCardProps {
@@ -227,6 +228,8 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
       queryClient.invalidateQueries({ queryKey: ['game-detail'] });
     },
   });
+
+  const { tiltStyle, shineStyle, tiltHandlers, shadowOffset } = useTilt3D();
 
   if (!game) return null;
 
@@ -720,46 +723,54 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
 
   if (Platform.OS === 'web') {
     return (
-      <Pressable
-        className="bg-surface rounded-2xl p-4 mb-3"
-        style={({ pressed, hovered }: any) => {
-          const scale = pressed ? 0.988 : hovered ? 1.012 : 1;
-          const borderColor = pressed
-            ? withAlpha(homeAccent, 0.5)
-            : hovered
-              ? withAlpha(homeAccent, 0.36)
-              : withAlpha('#ffffff', 0.1);
-          const bgTint = hovered ? withAlpha('#1a2233', 0.9) : withAlpha('#1a2233', 0.82);
-          const shadow = pressed
-            ? `0 10px 24px ${withAlpha('#000000', 0.45)}, 0 0 0 1px ${withAlpha(homeAccent, 0.22)}, 0 0 24px ${withAlpha(awayAccent, 0.14)}`
-            : hovered
-              ? `0 20px 42px ${withAlpha('#000000', 0.56)}, 0 0 0 1px ${withAlpha(homeAccent, 0.3)}, 0 0 32px ${withAlpha(awayAccent, 0.2)}, inset 0 1px 0 ${withAlpha('#ffffff', 0.14)}`
-              : `0 12px 28px ${withAlpha('#000000', 0.44)}, inset 0 1px 0 ${withAlpha('#ffffff', 0.08)}`;
+      <div style={tiltStyle as any} {...tiltHandlers}>
+        <Pressable
+          className="bg-surface rounded-2xl p-4 mb-3"
+          style={({ pressed, hovered }: any) => {
+            const scale = pressed ? 0.988 : 1;
+            const borderColor = pressed
+              ? withAlpha(homeAccent, 0.5)
+              : hovered
+                ? withAlpha(homeAccent, 0.36)
+                : withAlpha('#ffffff', 0.1);
+            const bgTint = hovered ? withAlpha('#1a2233', 0.9) : withAlpha('#1a2233', 0.82);
 
-          return [
-            {
-              position: 'relative',
-              overflow: 'hidden',
-              borderWidth: 1,
-              borderColor,
-              transform: [{ scale }],
-              backgroundColor: bgTint,
-            },
-            {
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              boxShadow: shadow,
-              transitionDuration: '180ms',
-              transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
-              transitionProperty: 'transform, box-shadow, border-color, background-color',
-              cursor: 'pointer',
-            } as any,
-          ];
-        }}
-        onPress={() => router.push(`/game/${game.id}`)}
-      >
-        {cardContent}
-      </Pressable>
+            // Dynamic shadow: shift opposite to tilt direction
+            const ox = Math.round(shadowOffset.x);
+            const oy = Math.round(shadowOffset.y);
+            const shadow = pressed
+              ? `${ox}px ${10 + oy}px 24px ${withAlpha('#000000', 0.45)}, 0 0 0 1px ${withAlpha(homeAccent, 0.22)}, 0 0 24px ${withAlpha(awayAccent, 0.14)}`
+              : hovered
+                ? `${ox}px ${20 + oy}px 42px ${withAlpha('#000000', 0.56)}, 0 0 0 1px ${withAlpha(homeAccent, 0.3)}, 0 0 32px ${withAlpha(awayAccent, 0.2)}, inset 0 1px 0 ${withAlpha('#ffffff', 0.14)}`
+                : `0 12px 28px ${withAlpha('#000000', 0.44)}, inset 0 1px 0 ${withAlpha('#ffffff', 0.08)}`;
+
+            return [
+              {
+                position: 'relative',
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor,
+                transform: [{ scale }],
+                backgroundColor: bgTint,
+              },
+              {
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: shadow,
+                transitionDuration: '180ms',
+                transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                transitionProperty: 'transform, box-shadow, border-color, background-color',
+                cursor: 'pointer',
+              } as any,
+            ];
+          }}
+          onPress={() => router.push(`/game/${game.id}`)}
+        >
+          {/* Shine overlay */}
+          <div style={shineStyle as any} />
+          {cardContent}
+        </Pressable>
+      </div>
     );
   }
 

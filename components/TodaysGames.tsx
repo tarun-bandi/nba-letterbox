@@ -198,6 +198,8 @@ export default function TodaysGames() {
   const predictedGameIds = enrichment?.predictedGameIds ?? new Set<string>();
   const gamesByProviderId = enrichment?.gamesByProviderId ?? new Map<number, MappedNbaGame>();
 
+  const gameCount = scoreboard.games.length;
+
   return (
     <View className="pb-3">
       <View
@@ -206,7 +208,7 @@ export default function TodaysGames() {
           borderRadius: 18,
           overflow: 'hidden',
           borderWidth: 1,
-          borderColor: withAlpha('#ffffff', 0.06),
+          borderColor: withAlpha('#c9a84c', 0.12),
           backgroundColor: '#05070d',
         }}
       >
@@ -218,6 +220,7 @@ export default function TodaysGames() {
             backgroundColor: '#040507',
           }}
         />
+        {/* Top gradient sweep */}
         <View
           pointerEvents="none"
           style={{
@@ -225,10 +228,27 @@ export default function TodaysGames() {
             top: 0,
             left: 0,
             right: 0,
-            height: '62%',
-            backgroundColor: withAlpha('#132548', 0.44),
+            height: '55%',
           }}
-        />
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: withAlpha('#132548', 0.44),
+            }}
+          />
+          {/* Animated shimmer overlay (web only) */}
+          {Platform.OS === 'web' && (
+            <div
+              className="banner-shimmer"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: `linear-gradient(105deg, transparent 30%, ${withAlpha('#c9a84c', 0.06)} 50%, transparent 70%)`,
+              } as any}
+            />
+          )}
+        </View>
         <View
           pointerEvents="none"
           style={{
@@ -240,6 +260,7 @@ export default function TodaysGames() {
             backgroundColor: withAlpha('#080b12', 0.9),
           }}
         />
+        {/* Decorative orbs */}
         <View
           pointerEvents="none"
           style={{
@@ -252,11 +273,75 @@ export default function TodaysGames() {
             backgroundColor: withAlpha('#1D428A', 0.18),
           }}
         />
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            bottom: -40,
+            left: -30,
+            width: 120,
+            height: 120,
+            borderRadius: 999,
+            backgroundColor: withAlpha('#c9a84c', 0.06),
+          }}
+        />
+        {/* Top edge highlight */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 24,
+            right: 24,
+            height: 1,
+            backgroundColor: withAlpha('#c9a84c', 0.15),
+          }}
+        />
 
-        <View className="pt-2 pb-2">
+        <View className="pt-3 pb-2">
           <View className="flex-row justify-between items-center px-4 mb-2">
-            <Text className="text-white font-semibold text-base">Today's Games</Text>
-            <Text className="text-muted text-xs">{formatTodayDate()}</Text>
+            <View className="flex-row items-center gap-2">
+              <Text
+                style={{
+                  color: '#ffffff',
+                  fontSize: 17,
+                  fontWeight: '700',
+                  letterSpacing: -0.3,
+                }}
+              >
+                Today's Games
+              </Text>
+              <View
+                style={{
+                  backgroundColor: withAlpha('#c9a84c', 0.15),
+                  borderRadius: 10,
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  borderWidth: 1,
+                  borderColor: withAlpha('#c9a84c', 0.25),
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#c9a84c',
+                    fontSize: 11,
+                    fontWeight: '700',
+                  }}
+                >
+                  {gameCount}
+                </Text>
+              </View>
+            </View>
+            <Text
+              style={{
+                color: withAlpha('#ffffff', 0.4),
+                fontSize: 12,
+                fontWeight: '500',
+                letterSpacing: 0.3,
+              }}
+            >
+              {formatTodayDate()}
+            </Text>
           </View>
           <ScrollView
             horizontal
