@@ -230,8 +230,8 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
 
   if (!game) return null;
 
-  const awayAccent = getTeamAccentColor(game.away_team.abbreviation);
-  const homeAccent = getTeamAccentColor(game.home_team.abbreviation);
+  const awayAccent = getTeamAccentColor(game.away_team.abbreviation, game.sport);
+  const homeAccent = getTeamAccentColor(game.home_team.abbreviation, game.sport);
   const avatarRingColor =
     log.fan_of === 'home'
       ? homeAccent

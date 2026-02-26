@@ -98,9 +98,10 @@ export function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
 }
 
-export function getTeamAccentColor(abbreviation?: string): string {
+export function getTeamAccentColor(abbreviation?: string, sport?: string): string {
   const abbr = (abbreviation ?? '').toUpperCase().trim();
   if (!abbr) return '#6B7280';
+  if (sport === 'nfl' && abbr in NFL_TEAM_COLORS) return NFL_TEAM_COLORS[abbr];
   if (abbr in NBA_TEAM_COLORS) return NBA_TEAM_COLORS[abbr];
   if (abbr in NFL_TEAM_COLORS) return NFL_TEAM_COLORS[abbr];
 

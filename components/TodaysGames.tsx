@@ -278,8 +278,8 @@ export default function TodaysGames() {
               const awayWon =
                 isFinal && homeScore != null && awayScore != null && awayScore > homeScore;
 
-              const awayAccent = getTeamAccentColor(game.awayTeam.abbreviation);
-              const homeAccent = getTeamAccentColor(game.homeTeam.abbreviation);
+              const awayAccent = getTeamAccentColor(game.awayTeam.abbreviation, 'nba');
+              const homeAccent = getTeamAccentColor(game.homeTeam.abbreviation, 'nba');
               const cardAccent = homeWon ? homeAccent : awayWon ? awayAccent : homeAccent;
 
               const isFav =
