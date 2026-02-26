@@ -366,40 +366,116 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
         })()}
 
         {/* Matchup header strip */}
-        <View className="flex-row items-center justify-center gap-2 mb-1">
-          <TeamLogo abbreviation={game.away_team.abbreviation} sport={game.sport ?? 'nba'} size={24} />
-          <Text className="text-white font-bold text-sm">
-            {game.away_team.abbreviation}
-          </Text>
-          {game.home_team_score !== null ? (
-            <>
-              <Text className="text-white font-bold text-base">
-                {game.away_team_score}
+        <View className="mb-2">
+          <View
+            style={{
+              borderRadius: 12,
+              paddingHorizontal: 8,
+              paddingVertical: 6,
+              borderWidth: 1,
+              borderColor: withAlpha('#ffffff', 0.09),
+              backgroundColor: withAlpha('#111827', 0.46),
+              overflow: 'hidden',
+            }}
+          >
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: -18,
+                top: -22,
+                width: 76,
+                height: 76,
+                borderRadius: 999,
+                backgroundColor: withAlpha(awayAccent, 0.2),
+              }}
+            />
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                right: -18,
+                top: -22,
+                width: 76,
+                height: 76,
+                borderRadius: 999,
+                backgroundColor: withAlpha(homeAccent, 0.2),
+              }}
+            />
+            <View className="flex-row items-center justify-center gap-2">
+              <View
+                style={{
+                  borderRadius: 999,
+                  padding: 1,
+                  shadowColor: awayAccent,
+                  shadowOpacity: 0.45,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 0 },
+                  elevation: 3,
+                }}
+              >
+                <TeamLogo abbreviation={game.away_team.abbreviation} sport={game.sport ?? 'nba'} size={24} />
+              </View>
+              <Text
+                className="font-bold text-sm"
+                style={{
+                  color: withAlpha(awayAccent, 0.98),
+                  textShadowColor: withAlpha(awayAccent, 0.35),
+                  textShadowRadius: 6,
+                }}
+              >
+                {game.away_team.abbreviation}
               </Text>
-              <Text className="text-muted text-sm">{'\u2014'}</Text>
-              <Text className="text-white font-bold text-base">
-                {game.home_team_score}
+              {game.home_team_score !== null ? (
+                <>
+                  <Text className="text-white font-bold text-base">
+                    {game.away_team_score}
+                  </Text>
+                  <Text className="text-muted text-sm">{'\u2014'}</Text>
+                  <Text className="text-white font-bold text-base">
+                    {game.home_team_score}
+                  </Text>
+                </>
+              ) : (
+                <Text className="text-muted text-xs">
+                  {formatDate(game.game_date_utc)}
+                </Text>
+              )}
+              <Text
+                className="font-bold text-sm"
+                style={{
+                  color: withAlpha(homeAccent, 0.98),
+                  textShadowColor: withAlpha(homeAccent, 0.35),
+                  textShadowRadius: 6,
+                }}
+              >
+                {game.home_team.abbreviation}
               </Text>
-            </>
-          ) : (
-            <Text className="text-muted text-xs">
-              {formatDate(game.game_date_utc)}
-            </Text>
-          )}
-          <Text className="text-white font-bold text-sm">
-            {game.home_team.abbreviation}
-          </Text>
-          <TeamLogo abbreviation={game.home_team.abbreviation} sport={game.sport ?? 'nba'} size={24} />
-          {game.playoff_round && (
-            <View className="ml-1">
-              <PlayoffBadge round={game.playoff_round} sport={game.sport ?? 'nba'} />
+              <View
+                style={{
+                  borderRadius: 999,
+                  padding: 1,
+                  shadowColor: homeAccent,
+                  shadowOpacity: 0.45,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 0 },
+                  elevation: 3,
+                }}
+              >
+                <TeamLogo abbreviation={game.home_team.abbreviation} sport={game.sport ?? 'nba'} size={24} />
+              </View>
+              {game.playoff_round && (
+                <View className="ml-1">
+                  <PlayoffBadge round={game.playoff_round} sport={game.sport ?? 'nba'} />
+                </View>
+              )}
+              {showLoggedBadge && (
+                <View className="bg-accent/20 border border-accent/40 rounded-full px-2 py-0.5 ml-1">
+                  <Text className="text-accent text-xs font-medium">Logged</Text>
+                </View>
+              )}
             </View>
-          )}
-          {showLoggedBadge && (
-            <View className="bg-accent/20 border border-accent/40 rounded-full px-2 py-0.5 ml-1">
-              <Text className="text-accent text-xs font-medium">Logged</Text>
-            </View>
-          )}
+          </View>
         </View>
 
         {/* Team records */}
@@ -414,9 +490,35 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
         )}
 
         {/* Team-tinted divider */}
-        <View className="flex-row h-px mb-2 overflow-hidden rounded-full">
-          <View style={{ flex: 1, backgroundColor: withAlpha(awayAccent, 0.36) }} />
-          <View style={{ flex: 1, backgroundColor: withAlpha(homeAccent, 0.36) }} />
+        <View className="mb-2" style={{ position: 'relative' }}>
+          <View className="flex-row h-[2px] overflow-hidden rounded-full">
+            <View style={{ flex: 1, backgroundColor: withAlpha(awayAccent, 0.82) }} />
+            <View style={{ flex: 1, backgroundColor: withAlpha(homeAccent, 0.82) }} />
+          </View>
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: -2,
+              width: '50%',
+              height: 6,
+              borderRadius: 999,
+              backgroundColor: withAlpha(awayAccent, 0.26),
+            }}
+          />
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: -2,
+              width: '50%',
+              height: 6,
+              borderRadius: 999,
+              backgroundColor: withAlpha(homeAccent, 0.26),
+            }}
+          />
         </View>
 
         {/* User info (feed mode) */}
