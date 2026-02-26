@@ -24,7 +24,7 @@ import PlayoffBadge from './PlayoffBadge';
 import RankBadge from './RankBadge';
 import ReactionPicker, { REACTION_EMOJI, REACTION_CONFIG } from './ReactionPicker';
 import { gameUrl } from '@/lib/urls';
-import { getTeamAccentColor, withAlpha } from '@/lib/teamColors';
+import { getTeamAccentColor, withAlpha, ensureTextContrast } from '@/lib/teamColors';
 import type { GameLogWithGame, ReactionType } from '@/types/database';
 
 interface GameCardProps {
@@ -419,7 +419,7 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
               <Text
                 className="font-bold text-sm"
                 style={{
-                  color: withAlpha(awayAccent, 0.98),
+                  color: withAlpha(ensureTextContrast(awayAccent), 0.98),
                   textShadowColor: withAlpha(awayAccent, 0.35),
                   textShadowRadius: 6,
                 }}
@@ -444,7 +444,7 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
               <Text
                 className="font-bold text-sm"
                 style={{
-                  color: withAlpha(homeAccent, 0.98),
+                  color: withAlpha(ensureTextContrast(homeAccent), 0.98),
                   textShadowColor: withAlpha(homeAccent, 0.35),
                   textShadowRadius: 6,
                 }}

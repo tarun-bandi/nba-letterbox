@@ -85,6 +85,54 @@ const FALLBACK_PALETTE = [
   '#C9A84C',
 ];
 
+/**
+ * Lighten dark accent colors so abbreviation text stays readable on a dark background.
+ * Blends toward white when relative luminance falls below the threshold.
+ */
+export function ensureTextContrast(hex: string): string {
+  const clean = hex.replace('#', '');
+  const normalized =
+    clean.length === 3
+      ? clean.split('').map((c) => c + c).join('')
+      : clean.padEnd(6, '0');
+
+  let r = Number.parseInt(normalized.slice(0, 2), 16);
+  let g = Number.parseInt(normalized.slice(2, 4), 16);
+  let b = Number.parseInt(normalized.slice(4, 6), 16);
+
+  // sRGB relative luminance
+  const toLinear = (v: number) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+
+  // If luminance is already bright enough, return as-is
+  if (luminance >= 0.08) return hex;
+
+  // Blend toward white until we hit the target luminance
+  const target = 0.08;
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 16; i++) {
+    const mid = (lo + hi) / 2;
+    const mr = r + (255 - r) * mid;
+    const mg = g + (255 - g) * mid;
+    const mb = b + (255 - b) * mid;
+    const ml = 0.2126 * toLinear(mr) + 0.7152 * toLinear(mg) + 0.0722 * toLinear(mb);
+    if (ml < target) lo = mid;
+    else hi = mid;
+  }
+
+  const t = (lo + hi) / 2;
+  const fr = Math.round(r + (255 - r) * t);
+  const fg = Math.round(g + (255 - g) * t);
+  const fb = Math.round(b + (255 - b) * t);
+
+  return `#${fr.toString(16).padStart(2, '0')}${fg.toString(16).padStart(2, '0')}${fb.toString(16).padStart(2, '0')}`;
+}
+
+
 export function withAlpha(hex: string, alpha: number): string {
   const clean = hex.replace('#', '');
   const normalized =
