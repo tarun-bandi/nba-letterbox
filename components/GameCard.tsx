@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Share as RNShare, Platform, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Share as RNShare, Platform, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState, useCallback, memo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -720,14 +720,46 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
 
   if (Platform.OS === 'web') {
     return (
-      <TouchableOpacity
-        className="bg-surface border border-border rounded-2xl p-4 mb-3"
-        style={{ position: 'relative', overflow: 'hidden' }}
+      <Pressable
+        className="bg-surface rounded-2xl p-4 mb-3"
+        style={({ pressed, hovered }: any) => {
+          const scale = pressed ? 0.988 : hovered ? 1.012 : 1;
+          const borderColor = pressed
+            ? withAlpha(homeAccent, 0.5)
+            : hovered
+              ? withAlpha(homeAccent, 0.36)
+              : withAlpha('#ffffff', 0.1);
+          const bgTint = hovered ? withAlpha('#1a2233', 0.9) : withAlpha('#1a2233', 0.82);
+          const shadow = pressed
+            ? `0 10px 24px ${withAlpha('#000000', 0.45)}, 0 0 0 1px ${withAlpha(homeAccent, 0.22)}, 0 0 24px ${withAlpha(awayAccent, 0.14)}`
+            : hovered
+              ? `0 20px 42px ${withAlpha('#000000', 0.56)}, 0 0 0 1px ${withAlpha(homeAccent, 0.3)}, 0 0 32px ${withAlpha(awayAccent, 0.2)}, inset 0 1px 0 ${withAlpha('#ffffff', 0.14)}`
+              : `0 12px 28px ${withAlpha('#000000', 0.44)}, inset 0 1px 0 ${withAlpha('#ffffff', 0.08)}`;
+
+          return [
+            {
+              position: 'relative',
+              overflow: 'hidden',
+              borderWidth: 1,
+              borderColor,
+              transform: [{ scale }],
+              backgroundColor: bgTint,
+            },
+            {
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              boxShadow: shadow,
+              transitionDuration: '180ms',
+              transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+              transitionProperty: 'transform, box-shadow, border-color, background-color',
+              cursor: 'pointer',
+            } as any,
+          ];
+        }}
         onPress={() => router.push(`/game/${game.id}`)}
-        activeOpacity={0.8}
       >
         {cardContent}
-      </TouchableOpacity>
+      </Pressable>
     );
   }
 
