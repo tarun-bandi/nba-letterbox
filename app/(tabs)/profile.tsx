@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Settings, BarChart3, Share2, Trophy } from 'lucide-react-native';
+import { Pencil, Settings, BarChart3, Share, Trophy } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
@@ -212,7 +212,7 @@ export default function ProfileScreen() {
               }}
               className="p-2"
             >
-              <Share2 size={20} color="#6b7280" />
+              <Share size={20} color="#6b7280" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setShowEditProfile(true)}
