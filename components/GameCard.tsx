@@ -24,6 +24,7 @@ import PlayoffBadge from './PlayoffBadge';
 import RankBadge from './RankBadge';
 import ReactionPicker, { REACTION_EMOJI, REACTION_CONFIG } from './ReactionPicker';
 import { gameUrl } from '@/lib/urls';
+import { getTeamAccentColor, withAlpha } from '@/lib/teamColors';
 import type { GameLogWithGame, ReactionType } from '@/types/database';
 
 interface GameCardProps {
@@ -119,6 +120,11 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
   const fireScale = useSharedValue(0);
   const fireOpacity = useSharedValue(0);
   const reactionButtonScale = useSharedValue(1);
+  const reactionGlow = useSharedValue(0);
+  const shareScale = useSharedValue(1);
+  const shareGlow = useSharedValue(0);
+  const commentScale = useSharedValue(1);
+  const commentGlow = useSharedValue(0);
 
   const fireAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: fireScale.value }],
@@ -127,6 +133,26 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
 
   const reactionButtonAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: reactionButtonScale.value }],
+    shadowColor: '#c9a84c',
+    shadowOpacity: reactionGlow.value * 0.45,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+  }));
+
+  const shareButtonAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: shareScale.value }],
+    shadowColor: '#5fa3ff',
+    shadowOpacity: shareGlow.value * 0.45,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+  }));
+
+  const commentButtonAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: commentScale.value }],
+    shadowColor: '#7fd0ff',
+    shadowOpacity: commentGlow.value * 0.42,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   }));
 
   const reactionMutation = useMutation({
@@ -204,11 +230,38 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
 
   if (!game) return null;
 
+  const awayAccent = getTeamAccentColor(game.away_team.abbreviation);
+  const homeAccent = getTeamAccentColor(game.home_team.abbreviation);
+  const avatarRingColor =
+    log.fan_of === 'home'
+      ? homeAccent
+      : log.fan_of === 'away'
+        ? awayAccent
+        : log.fan_of === 'both'
+          ? '#c9a84c'
+          : withAlpha('#6b7280', 0.7);
+
+  const animateIconTap = (scale: typeof shareScale, glow: typeof shareGlow) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    scale.value = withSequence(
+      withSpring(1.18, { damping: 5, stiffness: 360 }),
+      withSpring(1, { damping: 8, stiffness: 240 }),
+    );
+    glow.value = withSequence(
+      withTiming(1, { duration: 120 }),
+      withTiming(0, { duration: 220 }),
+    );
+  };
+
   const handleReaction = useCallback((reactionType: ReactionType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     reactionButtonScale.value = withSequence(
       withSpring(1.3, { damping: 4, stiffness: 300 }),
       withSpring(1, { damping: 8, stiffness: 200 }),
+    );
+    reactionGlow.value = withSequence(
+      withTiming(1, { duration: 120 }),
+      withTiming(0, { duration: 260 }),
     );
     const isRemoval = log.my_reaction === reactionType;
     reactionMutation.mutate({ reactionType, isRemoval });
@@ -222,6 +275,10 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
       reactionButtonScale.value = withSequence(
         withSpring(1.3, { damping: 4, stiffness: 300 }),
         withSpring(1, { damping: 8, stiffness: 200 }),
+      );
+      reactionGlow.value = withSequence(
+        withTiming(1, { duration: 120 }),
+        withTiming(0, { duration: 260 }),
       );
       reactionMutation.mutate({ reactionType: log.my_reaction, isRemoval: true });
     } else {
@@ -356,17 +413,37 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
           </View>
         )}
 
+        {/* Team-tinted divider */}
+        <View className="flex-row h-px mb-2 overflow-hidden rounded-full">
+          <View style={{ flex: 1, backgroundColor: withAlpha(awayAccent, 0.36) }} />
+          <View style={{ flex: 1, backgroundColor: withAlpha(homeAccent, 0.36) }} />
+        </View>
+
         {/* User info (feed mode) */}
         {showUser && log.user_profile && (
           <TouchableOpacity
             onPress={() => router.push(`/user/${log.user_profile!.handle}`)}
             className="flex-row items-center gap-2 mb-2"
           >
-            <Avatar
-              url={log.user_profile.avatar_url}
-              name={log.user_profile.display_name}
-              size={28}
-            />
+            <View
+              style={{
+                borderRadius: 999,
+                padding: 1.5,
+                borderWidth: 1.5,
+                borderColor: avatarRingColor,
+                shadowColor: avatarRingColor,
+                shadowOpacity: 0.4,
+                shadowRadius: 4,
+                shadowOffset: { width: 0, height: 0 },
+                elevation: 3,
+              }}
+            >
+              <Avatar
+                url={log.user_profile.avatar_url}
+                name={log.user_profile.display_name}
+                size={28}
+              />
+            </View>
             <Text className="text-muted text-sm">
               <Text className="text-accent font-medium">
                 {log.user_profile.display_name}
@@ -456,27 +533,37 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
 
         {/* Actions: share + comments + reactions */}
         <View className="flex-row items-center justify-end gap-4 mt-3 pt-2 border-t border-border">
-          <TouchableOpacity
-            className="flex-row items-center gap-1.5"
-            onPress={handleShare}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            activeOpacity={0.6}
-          >
-            <Share2 size={17} color="#6b7280" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="flex-row items-center gap-1.5"
-            onPress={() => setShowComments(true)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            activeOpacity={0.6}
-          >
-            <MessageCircle size={18} color="#6b7280" />
-            {commentCount > 0 && (
-              <Text className="text-xs font-medium text-muted">
-                {commentCount}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <Animated.View style={shareButtonAnimStyle}>
+            <TouchableOpacity
+              className="flex-row items-center gap-1.5"
+              onPress={() => {
+                animateIconTap(shareScale, shareGlow);
+                handleShare();
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.6}
+            >
+              <Share2 size={17} color="#6b7280" />
+            </TouchableOpacity>
+          </Animated.View>
+          <Animated.View style={commentButtonAnimStyle}>
+            <TouchableOpacity
+              className="flex-row items-center gap-1.5"
+              onPress={() => {
+                animateIconTap(commentScale, commentGlow);
+                setShowComments(true);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.6}
+            >
+              <MessageCircle size={18} color="#6b7280" />
+              {commentCount > 0 && (
+                <Text className="text-xs font-medium text-muted">
+                  {commentCount}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
 
           {/* Reaction button area */}
           <View style={{ position: 'relative' }}>

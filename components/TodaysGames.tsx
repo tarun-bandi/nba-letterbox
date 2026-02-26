@@ -1,127 +1,32 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Animated,
+  Easing,
+  Platform,
+} from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store/authStore';
-import { useLiveScores } from '@/hooks/useLiveScores';
+import { useNbaScoreboard } from '@/hooks/useNbaScoreboard';
+import { getTeamAccentColor, withAlpha } from '@/lib/teamColors';
 import TeamLogo from './TeamLogo';
-import type { GameWithTeams, Sport } from '@/types/database';
 
-interface TodaysGamesData {
-  games: GameWithTeams[];
+interface MappedNbaGame {
+  id: string;
+  provider_game_id: number;
+  home_team_id: string;
+  away_team_id: string;
+}
+
+interface TodaysGamesEnrichment {
   favoriteTeamIds: Set<string>;
   predictedGameIds: Set<string>;
-}
-
-/** Return today's date as YYYY-MM-DD in the user's local timezone. */
-function getTodayDateStr(): string {
-  return toLocalDateStr(new Date());
-}
-
-/** Return local midnight → next local midnight as UTC timestamps. */
-function getLocalDayUtcWindow(): { startUTC: string; endUTC: string } {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
-  return {
-    startUTC: start.toISOString(),
-    endUTC: end.toISOString(),
-  };
-}
-
-function toLocalDateStr(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function toUTCDateStr(date: Date): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-/**
- * ESPN sometimes emits date-only values (00:00Z, and older rows may use 12:00Z).
- * For those, treat the UTC calendar day as authoritative to avoid local timezone rollover.
- */
-function isDateOnlyUtcTimestamp(date: Date): boolean {
-  const h = date.getUTCHours();
-  const m = date.getUTCMinutes();
-  const s = date.getUTCSeconds();
-  const ms = date.getUTCMilliseconds();
-  return (h === 0 || h === 12) && m === 0 && s === 0 && ms === 0;
-}
-
-function getGameScheduleDateStr(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return '';
-  return isDateOnlyUtcTimestamp(d) ? toUTCDateStr(d) : toLocalDateStr(d);
-}
-
-async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
-  const todayDateStr = getTodayDateStr();
-  const { startUTC, endUTC } = getLocalDayUtcWindow();
-  // Fetch a wider range and do a deterministic local "today" filter below.
-  const queryStartUTC = new Date(new Date(startUTC).getTime() - 12 * 60 * 60 * 1000).toISOString();
-  const queryEndUTC = new Date(new Date(endUTC).getTime() + 12 * 60 * 60 * 1000).toISOString();
-
-  const [gamesRes, favRes, predsRes] = await Promise.all([
-    supabase
-      .from('games')
-      .select(`
-        *,
-        home_team:teams!games_home_team_id_fkey (*),
-        away_team:teams!games_away_team_id_fkey (*),
-        season:seasons (*)
-      `)
-      .gte('game_date_utc', queryStartUTC)
-      .lt('game_date_utc', queryEndUTC)
-      .order('game_date_utc', { ascending: true }),
-    supabase
-      .from('user_favorite_teams')
-      .select('team_id')
-      .eq('user_id', userId),
-    supabase
-      .from('game_predictions')
-      .select('game_id')
-      .eq('user_id', userId),
-  ]);
-
-  if (gamesRes.error) throw gamesRes.error;
-
-  const favoriteTeamIds = new Set(
-    (favRes.data ?? []).map((f) => f.team_id),
-  );
-
-  const predictedGameIds = new Set(
-    (predsRes.data ?? []).map((p) => p.game_id),
-  );
-
-  const games = ((gamesRes.data ?? []) as unknown as GameWithTeams[])
-    .filter((game) => getGameScheduleDateStr(game.game_date_utc) === todayDateStr);
-
-  return {
-    games,
-    favoriteTeamIds,
-    predictedGameIds,
-  };
-}
-
-function formatTipoff(game: GameWithTeams): string {
-  const d = new Date(game.game_date_utc);
-  if (Number.isNaN(d.getTime())) return game.time ?? 'TBD';
-
-  if (isDateOnlyUtcTimestamp(d)) {
-    return game.time ?? 'TBD';
-  }
-
-  return d.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  gamesByProviderId: Map<number, MappedNbaGame>;
 }
 
 function formatTodayDate(): string {
@@ -132,175 +37,416 @@ function formatTodayDate(): string {
   });
 }
 
-const SPORT_PILL_COLORS: Record<Sport, string> = {
-  nba: '#c9a84c',
-  nfl: '#013369',
-};
+function LivePulseDot() {
+  const scale = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(0.95)).current;
 
-function SportBadge({ sport }: { sport: Sport }) {
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(scale, {
+            toValue: 1.35,
+            duration: 650,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0.35,
+            duration: 650,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 650,
+            easing: Easing.in(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0.95,
+            duration: 650,
+            easing: Easing.in(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity, scale]);
+
   return (
-    <View
-      className="absolute top-1 left-1 rounded-full px-1.5 py-0.5"
-      style={{ backgroundColor: SPORT_PILL_COLORS[sport] ?? '#666' }}
-    >
-      <Text className="text-white text-[8px] font-bold uppercase">{sport}</Text>
+    <Animated.View
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 999,
+        backgroundColor: '#e63946',
+        transform: [{ scale }],
+        opacity,
+      }}
+    />
+  );
+}
+
+function TeamLogoWithGlow({
+  abbreviation,
+  accent,
+}: {
+  abbreviation: string;
+  accent: string;
+}) {
+  return (
+    <View style={{ width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          width: 18,
+          height: 18,
+          borderRadius: 999,
+          backgroundColor: withAlpha(accent, 0.34),
+          shadowColor: accent,
+          shadowOpacity: 0.45,
+          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 0 },
+          elevation: 4,
+        }}
+      />
+      <TeamLogo
+        abbreviation={abbreviation}
+        sport="nba"
+        size={20}
+      />
     </View>
   );
+}
+
+async function fetchTodaysGamesEnrichment(
+  userId: string,
+  eventIds: number[],
+): Promise<TodaysGamesEnrichment> {
+  if (eventIds.length === 0) {
+    return {
+      favoriteTeamIds: new Set(),
+      predictedGameIds: new Set(),
+      gamesByProviderId: new Map(),
+    };
+  }
+
+  const [favRes, predsRes, gamesRes] = await Promise.all([
+    supabase
+      .from('user_favorite_teams')
+      .select('team_id')
+      .eq('user_id', userId),
+    supabase
+      .from('game_predictions')
+      .select('game_id')
+      .eq('user_id', userId),
+    supabase
+      .from('games')
+      .select('id, provider_game_id, home_team_id, away_team_id')
+      .eq('provider', 'espn')
+      .eq('sport', 'nba')
+      .in('provider_game_id', eventIds),
+  ]);
+
+  if (favRes.error) throw favRes.error;
+  if (predsRes.error) throw predsRes.error;
+  if (gamesRes.error) throw gamesRes.error;
+
+  const favoriteTeamIds = new Set(
+    ((favRes.data ?? []) as { team_id: string }[]).map((row) => row.team_id),
+  );
+  const predictedGameIds = new Set(
+    ((predsRes.data ?? []) as { game_id: string }[]).map((row) => row.game_id),
+  );
+  const gamesByProviderId = new Map<number, MappedNbaGame>();
+  for (const game of (gamesRes.data ?? []) as MappedNbaGame[]) {
+    gamesByProviderId.set(game.provider_game_id, game);
+  }
+
+  return {
+    favoriteTeamIds,
+    predictedGameIds,
+    gamesByProviderId,
+  };
 }
 
 export default function TodaysGames() {
   const { user } = useAuthStore();
   const router = useRouter();
+  const { data: scoreboard } = useNbaScoreboard();
 
-  const { data } = useQuery({
-    queryKey: ['todays-games', getTodayDateStr()],
-    queryFn: () => fetchTodaysGames(user!.id),
-    enabled: !!user,
+  const eventIds = useMemo(
+    () => scoreboard?.games.map((g) => g.providerGameId) ?? [],
+    [scoreboard?.games],
+  );
+
+  const { data: enrichment } = useQuery({
+    queryKey: ['todays-games-nba-enrichment', user?.id, eventIds.join(',')],
+    queryFn: () => fetchTodaysGamesEnrichment(user!.id, eventIds),
+    enabled: !!user && eventIds.length > 0,
   });
 
-  const { data: liveStatusMap } = useLiveScores(data?.games);
+  if (!scoreboard || scoreboard.games.length === 0) return null;
 
-  if (!data || data.games.length === 0) return null;
-
-  const { games, favoriteTeamIds, predictedGameIds } = data;
-
-  // Show sport badge if games span multiple sports
-  const hasMixedSports = new Set(games.map((g) => g.sport ?? 'nba')).size > 1;
+  const favoriteTeamIds = enrichment?.favoriteTeamIds ?? new Set<string>();
+  const predictedGameIds = enrichment?.predictedGameIds ?? new Set<string>();
+  const gamesByProviderId = enrichment?.gamesByProviderId ?? new Map<number, MappedNbaGame>();
 
   return (
     <View className="pb-3">
-      <View className="flex-row justify-between items-center px-4 mb-2">
-        <Text className="text-white font-semibold text-base">
-          Today's Games
-        </Text>
-        <Text className="text-muted text-xs">{formatTodayDate()}</Text>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+      <View
+        style={{
+          marginHorizontal: 8,
+          borderRadius: 18,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: withAlpha('#ffffff', 0.06),
+          backgroundColor: '#05070d',
+        }}
       >
-        {games.map((game) => {
-          const live = liveStatusMap?.get(game.provider_game_id);
-          const isFav =
-            favoriteTeamIds.has(game.home_team_id) ||
-            favoriteTeamIds.has(game.away_team_id);
-          const status = live?.status ?? game.status;
-          const homeScore = live ? live.homeScore : game.home_team_score;
-          const awayScore = live ? live.awayScore : game.away_team_score;
-          const isLive = status === 'live';
-          const isFinal = status === 'final';
-          const hasScores = isLive || isFinal;
-          const homeWon =
-            isFinal && homeScore != null && awayScore != null && homeScore > awayScore;
-          const awayWon =
-            isFinal && homeScore != null && awayScore != null && awayScore > homeScore;
-          const gameSport: Sport = game.sport ?? 'nba';
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: '#040507',
+          }}
+        />
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '62%',
+            backgroundColor: withAlpha('#132548', 0.44),
+          }}
+        />
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: '45%',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: withAlpha('#080b12', 0.9),
+          }}
+        />
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: -72,
+            right: -52,
+            width: 180,
+            height: 180,
+            borderRadius: 999,
+            backgroundColor: withAlpha('#1D428A', 0.18),
+          }}
+        />
 
-          return (
-            <TouchableOpacity
-              key={game.id}
-              className={`bg-surface border rounded-xl p-3 ${
-                isFav ? 'border-l-2 border-accent' : 'border-border'
-              }`}
-              style={{ width: 140 }}
-              onPress={() => router.push(`/game/${game.id}`)}
-              activeOpacity={0.7}
-            >
-              {/* Sport badge (only when mixed sports) */}
-              {hasMixedSports && <SportBadge sport={gameSport} />}
+        <View className="pt-2 pb-2">
+          <View className="flex-row justify-between items-center px-4 mb-2">
+            <Text className="text-white font-semibold text-base">Today's Games</Text>
+            <Text className="text-muted text-xs">{formatTodayDate()}</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+          >
+            {scoreboard.games.map((game) => {
+              const mappedGame = gamesByProviderId.get(game.providerGameId);
+              const isMapped = !!mappedGame;
+              const status = game.displayStatus;
+              const isLive = status === 'live';
+              const isFinal = status === 'final';
+              const hasScores = isLive || isFinal;
 
-              {/* Prediction badge */}
-              {!hasScores && predictedGameIds.has(game.id) && (
-                <View className="absolute top-1.5 right-1.5 bg-accent/20 rounded-full px-1.5 py-0.5">
-                  <Text className="text-accent text-[9px] font-bold">Predicted</Text>
-                </View>
-              )}
+              const homeScore = game.homeTeam.score;
+              const awayScore = game.awayTeam.score;
+              const homeWon =
+                isFinal && homeScore != null && awayScore != null && homeScore > awayScore;
+              const awayWon =
+                isFinal && homeScore != null && awayScore != null && awayScore > homeScore;
 
-              {/* Status */}
-              <View className="flex-row items-center justify-center mb-2">
-                {isLive ? (
-                  <View className="flex-row items-center gap-1">
-                    <View className="w-2 h-2 rounded-full bg-accent-red" />
-                    <Text className="text-accent-red text-xs font-bold">
-                      {live?.label ?? 'In Progress'}
-                    </Text>
+              const awayAccent = getTeamAccentColor(game.awayTeam.abbreviation);
+              const homeAccent = getTeamAccentColor(game.homeTeam.abbreviation);
+              const cardAccent = homeWon ? homeAccent : awayWon ? awayAccent : homeAccent;
+
+              const isFav =
+                !!mappedGame &&
+                (favoriteTeamIds.has(mappedGame.home_team_id) ||
+                  favoriteTeamIds.has(mappedGame.away_team_id));
+
+              return (
+                <Pressable
+                  key={game.providerGameId}
+                  onPress={() => {
+                    if (mappedGame) router.push(`/game/${mappedGame.id}`);
+                  }}
+                  disabled={!isMapped}
+                  style={({ pressed, hovered }: any) => {
+                    const scale = pressed ? 0.975 : hovered ? 1.015 : 1;
+                    const borderTint = pressed
+                      ? withAlpha(cardAccent, 0.55)
+                      : hovered
+                        ? withAlpha(cardAccent, 0.38)
+                        : withAlpha('#ffffff', 0.14);
+
+                    return [
+                      {
+                        width: 146,
+                        padding: 12,
+                        borderRadius: 14,
+                        overflow: 'hidden',
+                        borderWidth: 1,
+                        borderColor: borderTint,
+                        backgroundColor: withAlpha('#1a2233', Platform.OS === 'web' ? 0.48 : 0.76),
+                        transform: [{ scale }],
+                      },
+                      Platform.OS === 'web'
+                        ? ({
+                          backdropFilter: 'blur(10px)',
+                          WebkitBackdropFilter: 'blur(10px)',
+                          boxShadow: pressed
+                            ? `0 8px 18px ${withAlpha('#000000', 0.45)}, 0 0 0 1px ${withAlpha(cardAccent, 0.2)}`
+                            : hovered
+                              ? `0 14px 30px ${withAlpha('#000000', 0.5)}, 0 0 0 1px ${withAlpha(cardAccent, 0.28)}, inset 0 1px 0 ${withAlpha('#ffffff', 0.14)}`
+                              : `0 10px 24px ${withAlpha('#000000', 0.42)}, inset 0 1px 0 ${withAlpha('#ffffff', 0.1)}`,
+                        } as any)
+                        : Platform.OS === 'ios'
+                          ? {
+                            shadowColor: '#000000',
+                            shadowOffset: { width: 0, height: pressed ? 7 : 10 },
+                            shadowOpacity: pressed ? 0.28 : 0.36,
+                            shadowRadius: pressed ? 10 : 14,
+                            elevation: pressed ? 5 : 8,
+                          }
+                          : {
+                            elevation: pressed ? 6 : 9,
+                          },
+                      isFav
+                        ? {
+                          borderLeftWidth: 2.5,
+                          borderLeftColor: '#c9a84c',
+                        }
+                        : null,
+                    ];
+                  }}
+                >
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      top: -24,
+                      left: -18,
+                      width: 84,
+                      height: 84,
+                      borderRadius: 999,
+                      backgroundColor: withAlpha(awayAccent, 0.2),
+                    }}
+                  />
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      bottom: -28,
+                      right: -18,
+                      width: 88,
+                      height: 88,
+                      borderRadius: 999,
+                      backgroundColor: withAlpha(homeAccent, 0.18),
+                    }}
+                  />
+
+                  {!hasScores && mappedGame && predictedGameIds.has(mappedGame.id) && (
+                    <View className="absolute top-1.5 right-1.5 bg-accent/20 rounded-full px-1.5 py-0.5">
+                      <Text className="text-accent text-[9px] font-bold">Predicted</Text>
+                    </View>
+                  )}
+
+                  <View className="flex-row items-center justify-center mb-2">
+                    {isLive ? (
+                      <View className="flex-row items-center gap-1">
+                        <LivePulseDot />
+                        <Text className="text-accent-red text-xs font-bold">
+                          {game.statusLabel}
+                        </Text>
+                      </View>
+                    ) : isFinal ? (
+                      <Text className="text-muted text-xs font-semibold">
+                        Final
+                      </Text>
+                    ) : (
+                      <Text className="text-muted text-xs">
+                        {game.tipoffLabel}
+                      </Text>
+                    )}
                   </View>
-                ) : isFinal ? (
-                  <Text className="text-muted text-xs font-semibold">
-                    Final
-                  </Text>
-                ) : (
-                  <Text className="text-muted text-xs">
-                    {formatTipoff(game)}
-                  </Text>
-                )}
-              </View>
 
-              {/* Prediction badge */}
-              {!hasScores && predictedGameIds.has(game.id) && (
-                <View className="absolute top-1.5 right-1.5 bg-accent/20 rounded-full px-1.5 py-0.5">
-                  <Text className="text-accent text-[9px] font-bold">Predicted</Text>
-                </View>
-              )}
+                  <View className="flex-row h-px mb-2 overflow-hidden rounded-full">
+                    <View style={{ flex: 1, backgroundColor: withAlpha(awayAccent, 0.38) }} />
+                    <View style={{ flex: 1, backgroundColor: withAlpha(homeAccent, 0.38) }} />
+                  </View>
 
-              {/* Away team */}
-              <View className="flex-row items-center justify-between mb-1.5">
-                <View className="flex-row items-center gap-2">
-                  <TeamLogo
-                    abbreviation={game.away_team.abbreviation}
-                    sport={gameSport}
-                    size={20}
-                  />
-                  <Text
-                    className={`text-sm ${
-                      awayWon ? 'text-white font-bold' : 'text-muted font-medium'
-                    }`}
-                  >
-                    {game.away_team.abbreviation}
-                  </Text>
-                </View>
-                {hasScores && awayScore != null && (
-                  <Text
-                    className={`text-sm ${
-                      awayWon ? 'text-white font-bold' : 'text-muted'
-                    }`}
-                  >
-                    {awayScore}
-                  </Text>
-                )}
-              </View>
+                  <View className="flex-row items-center justify-between mb-1.5">
+                    <View className="flex-row items-center gap-2">
+                      <TeamLogoWithGlow abbreviation={game.awayTeam.abbreviation} accent={awayAccent} />
+                      <Text
+                        className={`text-sm ${
+                          awayWon ? 'text-white font-bold' : 'text-muted font-medium'
+                        }`}
+                      >
+                        {game.awayTeam.abbreviation}
+                      </Text>
+                    </View>
+                    {hasScores && awayScore != null && (
+                      <Text
+                        className={`text-sm ${
+                          awayWon ? 'text-white font-bold' : 'text-muted'
+                        }`}
+                      >
+                        {awayScore}
+                      </Text>
+                    )}
+                  </View>
 
-              {/* Home team */}
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center gap-2">
-                  <TeamLogo
-                    abbreviation={game.home_team.abbreviation}
-                    sport={gameSport}
-                    size={20}
-                  />
-                  <Text
-                    className={`text-sm ${
-                      homeWon ? 'text-white font-bold' : 'text-muted font-medium'
-                    }`}
-                  >
-                    {game.home_team.abbreviation}
-                  </Text>
-                </View>
-                {hasScores && homeScore != null && (
-                  <Text
-                    className={`text-sm ${
-                      homeWon ? 'text-white font-bold' : 'text-muted'
-                    }`}
-                  >
-                    {homeScore}
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center gap-2">
+                      <TeamLogoWithGlow abbreviation={game.homeTeam.abbreviation} accent={homeAccent} />
+                      <Text
+                        className={`text-sm ${
+                          homeWon ? 'text-white font-bold' : 'text-muted font-medium'
+                        }`}
+                      >
+                        {game.homeTeam.abbreviation}
+                      </Text>
+                    </View>
+                    {hasScores && homeScore != null && (
+                      <Text
+                        className={`text-sm ${
+                          homeWon ? 'text-white font-bold' : 'text-muted'
+                        }`}
+                      >
+                        {homeScore}
+                      </Text>
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
     </View>
   );
 }

@@ -200,6 +200,8 @@ export default function SettingsScreen() {
                       .eq('user_id', user.id);
                     queryClient.invalidateQueries({ queryKey: ['settings-profile'] });
                     queryClient.invalidateQueries({ queryKey: ['todays-games'] });
+                    queryClient.invalidateQueries({ queryKey: ['todays-games-nba-enrichment'] });
+                    queryClient.invalidateQueries({ queryKey: ['nba-scoreboard'] });
                     queryClient.invalidateQueries({ queryKey: ['feed'] });
                   }}
                   trackColor={{ false: '#2a2a2a', true: '#c9a84c' }}
