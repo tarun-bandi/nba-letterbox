@@ -25,7 +25,6 @@ import FavoritePlayersModal from '@/components/FavoritePlayersModal';
 import FollowListModal from '@/components/FollowListModal';
 import TeamLogo from '@/components/TeamLogo';
 import PlayerAvatar from '@/components/PlayerAvatar';
-import DiaryCalendar from '@/components/DiaryCalendar';
 import { ProfileSkeleton } from '@/components/Skeleton';
 import ErrorState from '@/components/ErrorState';
 import { PageContainer } from '@/components/PageContainer';
@@ -275,12 +274,22 @@ export default function ProfileScreen() {
       </View>
 
       {/* Diary */}
-      {user && (
-        <View className="px-4 pt-4">
-          <Text className="text-white font-semibold text-base mb-3">Diary</Text>
-          <DiaryCalendar userId={user.id} />
-        </View>
-      )}
+      <View className="px-4 pt-4">
+        <Text className="text-white font-semibold text-base mb-3">Diary</Text>
+        <TouchableOpacity
+          className="bg-surface border border-border rounded-xl p-4 flex-row items-center justify-between"
+          onPress={() => router.push('/diary')}
+          activeOpacity={0.7}
+        >
+          <View>
+            <Text className="text-white font-medium">View Diary</Text>
+            <Text className="text-muted text-xs mt-1">
+              Browse your logs by date
+            </Text>
+          </View>
+          <ChevronRight size={16} color="#6b7280" />
+        </TouchableOpacity>
+      </View>
 
       {/* Favorite Teams */}
       <View className="px-4 pt-4">

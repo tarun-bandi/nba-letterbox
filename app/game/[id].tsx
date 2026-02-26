@@ -1377,6 +1377,8 @@ export default function GameDetailScreen() {
             refetch();
             queryClient.invalidateQueries({ queryKey: ['feed'] });
             queryClient.invalidateQueries({ queryKey: ['profile'] });
+            queryClient.invalidateQueries({ queryKey: ['diary-month'] });
+            queryClient.invalidateQueries({ queryKey: ['diary-day'] });
             if (result?.showRankingFlow) {
               setIsRerank(false);
               setShowRankingFlow(true);
