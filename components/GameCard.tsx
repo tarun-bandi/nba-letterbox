@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, Share as RNShare, Platform, ScrollView, P
 import { useRouter } from 'expo-router';
 import { useState, useCallback, memo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Heart, MessageCircle, Share2 } from 'lucide-react-native';
+import { Heart, MessageCircle, Send } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -648,7 +648,7 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               activeOpacity={0.6}
             >
-              <Share2 size={17} color="#6b7280" />
+              <Send size={17} color="#6b7280" />
             </TouchableOpacity>
           </Animated.View>
           <Animated.View style={commentButtonAnimStyle}>
