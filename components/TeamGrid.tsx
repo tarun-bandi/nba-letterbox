@@ -1,8 +1,19 @@
-import { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useState, useMemo } from 'react';
+import { View, Text, FlatList, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTeams } from '@/hooks/useTeams';
 import TeamLogo from '@/components/TeamLogo';
 import type { Team, Sport } from '@/types/database';
+
+const NFL_DIVISION_ORDER = [
+  'AFC East',
+  'AFC North',
+  'AFC South',
+  'AFC West',
+  'NFC East',
+  'NFC North',
+  'NFC South',
+  'NFC West',
+];
 
 const SPORT_TABS: { key: Sport; label: string }[] = [
   { key: 'nba', label: 'NBA' },
@@ -35,6 +46,36 @@ export default function TeamGrid({ query, onSelectTeam, excludeTeamId }: TeamGri
     );
   });
 
+  const showGrouped = activeSport === 'nfl' && !q;
+
+  const groupedByDivision = useMemo(() => {
+    if (!showGrouped) return [];
+    const map = new Map<string, Team[]>();
+    for (const team of filtered) {
+      const div = team.division ?? 'Other';
+      if (!map.has(div)) map.set(div, []);
+      map.get(div)!.push(team);
+    }
+    return NFL_DIVISION_ORDER
+      .filter((div) => map.has(div))
+      .map((div) => ({ division: div, teams: map.get(div)! }));
+  }, [showGrouped, filtered]);
+
+  const renderTeamItem = (item: Team) => (
+    <TouchableOpacity
+      key={item.id}
+      className="items-center"
+      style={{ width: '18%' }}
+      onPress={() => onSelectTeam(item)}
+      activeOpacity={0.7}
+    >
+      <TeamLogo abbreviation={item.abbreviation} sport={activeSport} size={40} />
+      <Text className="text-muted text-xs mt-1 font-medium">
+        {item.abbreviation}
+      </Text>
+    </TouchableOpacity>
+  );
+
   return (
     <View className="flex-1">
       {/* Sport tabs */}
@@ -60,6 +101,23 @@ export default function TeamGrid({ query, onSelectTeam, excludeTeamId }: TeamGri
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color="#c9a84c" />
         </View>
+      ) : showGrouped ? (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 16 }}
+        >
+          {groupedByDivision.map((section) => (
+            <View key={section.division}>
+              <Text className="text-muted text-xs font-semibold px-4 pt-3 pb-1">
+                {section.division}
+              </Text>
+              <View className="flex-row flex-wrap" style={{ gap: 8, paddingHorizontal: 16, paddingTop: 4 }}>
+                {section.teams.map(renderTeamItem)}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
       ) : (
         <FlatList
           data={filtered}
@@ -69,19 +127,7 @@ export default function TeamGrid({ query, onSelectTeam, excludeTeamId }: TeamGri
           contentContainerStyle={{ gap: 12, paddingBottom: 16, paddingTop: 8 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              className="items-center"
-              style={{ width: '18%' }}
-              onPress={() => onSelectTeam(item)}
-              activeOpacity={0.7}
-            >
-              <TeamLogo abbreviation={item.abbreviation} sport={activeSport} size={40} />
-              <Text className="text-muted text-xs mt-1 font-medium">
-                {item.abbreviation}
-              </Text>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => renderTeamItem(item)}
           ListEmptyComponent={
             q ? (
               <View className="items-center pt-12">
