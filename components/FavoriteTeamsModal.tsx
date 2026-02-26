@@ -122,7 +122,7 @@ export default function FavoriteTeamsModal({
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View className="bg-surface rounded-t-3xl border-t border-border" style={{ maxHeight: '85%' }}>
+          <View className="bg-surface rounded-t-3xl border-t border-border max-w-screen-md w-full self-center" style={{ maxHeight: '85%' }}>
             <View className="items-center pt-3 pb-1">
               <View className="w-10 h-1 bg-border rounded-full" />
             </View>
