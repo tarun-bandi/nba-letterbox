@@ -4,19 +4,19 @@ const NBA_TEAM_COLORS: Record<string, string> = {
   BKN: '#FFFFFF',   // Nets white (black is invisible on dark bg)
   CHA: '#00788C',   // Hornets teal
   CHI: '#CE1141',   // Bulls red
-  CLE: '#860038',   // Cavaliers wine
+  CLE: '#6F263D',   // Cavaliers wine
   DAL: '#00538C',   // Mavericks blue
-  DEN: '#0E2240',   // Nuggets navy
+  DEN: '#FEC524',   // Nuggets gold (navy too dark)
   DET: '#C8102E',   // Pistons red
   GSW: '#1D428A',   // Warriors royal blue
   HOU: '#CE1141',   // Rockets red
-  IND: '#002D62',   // Pacers navy
+  IND: '#FDBB30',   // Pacers gold (navy too dark/duplicate)
   LAC: '#C8102E',   // Clippers red
   LAL: '#552583',   // Lakers purple
   MEM: '#5D76A9',   // Grizzlies beale street blue
   MIA: '#98002E',   // Heat red
   MIL: '#00471B',   // Bucks green
-  MIN: '#0C2340',   // Timberwolves navy
+  MIN: '#236192',   // Timberwolves blue (navy too dark)
   NOP: '#B4975A',   // Pelicans gold
   NYK: '#F58426',   // Knicks orange
   OKC: '#007AC1',   // Thunder blue
