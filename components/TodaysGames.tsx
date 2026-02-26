@@ -13,17 +13,28 @@ interface TodaysGamesData {
   predictedGameIds: Set<string>;
 }
 
-/** Return today's date as YYYY-MM-DD in US Eastern time. */
+/** Return today's date as YYYY-MM-DD in the user's local timezone. */
 function getTodayDateStr(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Return local midnight → next local midnight as UTC timestamps. */
+function getLocalDayUtcWindow(): { startUTC: string; endUTC: string } {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  return {
+    startUTC: start.toISOString(),
+    endUTC: end.toISOString(),
+  };
 }
 
 async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
-  const today = getTodayDateStr();
-  // 24-hour window anchored at 10:00 UTC (~5–6 AM ET) — no games at that hour
-  const [y, m, d] = today.split('-').map(Number);
-  const startUTC = new Date(Date.UTC(y, m - 1, d, 10, 0, 0)).toISOString();
-  const endUTC = new Date(Date.UTC(y, m - 1, d + 1, 10, 0, 0)).toISOString();
+  const { startUTC, endUTC } = getLocalDayUtcWindow();
 
   const [gamesRes, favRes, predsRes] = await Promise.all([
     supabase
@@ -66,10 +77,11 @@ async function fetchTodaysGames(userId: string): Promise<TodaysGamesData> {
 
 function formatTipoff(dateStr: string): string {
   const d = new Date(dateStr);
+  // Games stored at noon UTC are date-only (no real tipoff time from API)
+  if (d.getUTCHours() === 12 && d.getUTCMinutes() === 0) return 'TBD';
   return d.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    timeZone: 'America/New_York',
   });
 }
 

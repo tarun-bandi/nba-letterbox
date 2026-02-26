@@ -112,14 +112,21 @@ export function formatLiveStatus(
   return clock ? `${label} ${clock}` : label;
 }
 
-/**
- * Build the ESPN scoreboard URL for a given ET date (YYYYMMDD).
- */
+/** Build the ESPN scoreboard URL for a given date key (YYYYMMDD). */
 export function getEspnScoreboardUrl(dateStr?: string): string {
   if (dateStr) {
     return `${ESPN_SCOREBOARD_URL}?dates=${dateStr}`;
   }
   return ESPN_SCOREBOARD_URL;
+}
+
+/** Local date key as YYYYMMDD. */
+function getLocalDateKey(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
 }
 
 /**
@@ -137,7 +144,8 @@ export async function fetchTodaysGamesFromESPN(): Promise<EspnEvent[]> {
 /** Web: call our Vercel serverless proxy */
 async function fetchViaProxy(): Promise<EspnEvent[]> {
   try {
-    const res = await fetch('/api/scores/nba');
+    const date = getLocalDateKey();
+    const res = await fetch(`/api/scores/nba?date=${encodeURIComponent(date)}`);
     if (!res.ok) {
       console.warn(`ESPN proxy error: ${res.status}`);
       return [];
@@ -153,10 +161,8 @@ async function fetchViaProxy(): Promise<EspnEvent[]> {
 /** Native: call ESPN directly (public API, no auth needed) */
 async function fetchDirectFromESPN(): Promise<EspnEvent[]> {
   try {
-    const today = new Date()
-      .toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
-      .replace(/-/g, '');
-    const url = getEspnScoreboardUrl(today);
+    const date = getLocalDateKey();
+    const url = getEspnScoreboardUrl(date);
 
     const res = await fetch(url);
     if (!res.ok) {

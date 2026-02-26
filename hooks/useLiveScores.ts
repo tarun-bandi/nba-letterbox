@@ -4,7 +4,11 @@ import { getProvider } from '@/lib/providers';
 import type { GameWithTeams, Sport } from '@/types/database';
 
 function getTodayDateStr(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export interface LiveGameData {

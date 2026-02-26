@@ -3,13 +3,23 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const ESPN_SCOREBOARD_URL =
   'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
 
-export default async function handler(_req: VercelRequest, res: VercelResponse) {
-  const today = new Date()
+function getDefaultDateET(): string {
+  return new Date()
     .toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
     .replace(/-/g, '');
+}
+
+function getRequestedDate(req: VercelRequest): string {
+  const raw = Array.isArray(req.query.date) ? req.query.date[0] : req.query.date;
+  if (raw && /^\d{8}$/.test(raw)) return raw;
+  return getDefaultDateET();
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const date = getRequestedDate(req);
 
   try {
-    const espnRes = await fetch(`${ESPN_SCOREBOARD_URL}?dates=${today}`);
+    const espnRes = await fetch(`${ESPN_SCOREBOARD_URL}?dates=${date}`);
 
     if (!espnRes.ok) {
       return res.status(espnRes.status).json({ error: `ESPN API error: ${espnRes.status}` });
