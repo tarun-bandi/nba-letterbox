@@ -4,7 +4,7 @@ import { useTeams } from '@/hooks/useTeams';
 import TeamLogo from '@/components/TeamLogo';
 import type { Team, Sport } from '@/types/database';
 
-const NBA_CONFERENCE_ORDER = ['Eastern', 'Western'];
+const NBA_CONFERENCE_ORDER = ['East', 'West'];
 
 const NFL_DIVISION_ORDER = [
   'AFC East',
