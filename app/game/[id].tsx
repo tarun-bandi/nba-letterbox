@@ -18,7 +18,7 @@ import { enrichLogs } from '@/lib/enrichLogs';
 import { useAuthStore } from '@/lib/store/authStore';
 import { getProvider } from '@/lib/providers';
 import type { BoxScoreColumnDef, BoxScoreCategory, TeamComparisonStatDef } from '@/lib/providers';
-import { List, Play, Bookmark, Share2 } from 'lucide-react-native';
+import { List, Play, Bookmark, Send } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import GameCard from '@/components/GameCard';
 import ErrorState from '@/components/ErrorState';
@@ -1132,7 +1132,7 @@ export default function GameDetailScreen() {
                 }}
                 activeOpacity={0.8}
               >
-                <Share2 size={22} color="#c9a84c" />
+                <Send size={22} color="#c9a84c" />
               </TouchableOpacity>
             </View>
 
