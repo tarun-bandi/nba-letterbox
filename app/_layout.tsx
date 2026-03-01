@@ -34,8 +34,9 @@ function useProtectedRoute() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
+    const inPublicPage = segments[0] === 'privacy' || segments[0] === 'support';
 
-    if (!session && !inAuthGroup) {
+    if (!session && !inAuthGroup && !inPublicPage) {
       router.replace('/(auth)/login');
     } else if (session && inAuthGroup) {
       if (onboardingCompleted === false) {
@@ -258,6 +259,24 @@ export default function RootLayout() {
               options={{
                 headerShown: true,
                 title: 'My Rankings',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
+            <Stack.Screen
+              name="privacy"
+              options={{
+                headerShown: true,
+                title: 'Privacy Policy',
+                headerStyle: { backgroundColor: '#1a1a1a' },
+                headerTintColor: '#ffffff',
+              }}
+            />
+            <Stack.Screen
+              name="support"
+              options={{
+                headerShown: true,
+                title: 'Support',
                 headerStyle: { backgroundColor: '#1a1a1a' },
                 headerTintColor: '#ffffff',
               }}
