@@ -80,10 +80,10 @@ async function seedTeams() {
   console.log('Fetching NFL teams from ESPN...');
   const [teamsRes, groupsRes] = await Promise.all([
     fetch(`${ESPN_NFL_BASE}/teams?limit=40`, {
-      headers: { 'User-Agent': 'nba-letterbox/1.0' },
+      headers: { 'User-Agent': 'know-ball/1.0' },
     }),
     fetch(`${ESPN_NFL_BASE}/groups`, {
-      headers: { 'User-Agent': 'nba-letterbox/1.0' },
+      headers: { 'User-Agent': 'know-ball/1.0' },
     }),
   ]);
 
@@ -185,7 +185,7 @@ async function seedGames(season: number) {
     for (let week = 1; week <= maxWeek; week++) {
       const url = `${ESPN_NFL_BASE}/scoreboard?seasontype=${seasonType}&week=${week}&dates=${season}`;
       const res = await fetch(url, {
-        headers: { 'User-Agent': 'nba-letterbox/1.0' },
+        headers: { 'User-Agent': 'know-ball/1.0' },
       });
 
       if (!res.ok) {

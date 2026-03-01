@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // 1. Fetch NBA.com scoreboard to find the game ID
     const scoreboardRes = await fetch(SCOREBOARD_URL, {
-      headers: { 'User-Agent': 'nba-letterbox/1.0' },
+      headers: { 'User-Agent': 'know-ball/1.0' },
     });
 
     if (!scoreboardRes.ok) {
@@ -69,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 2. Fetch play-by-play
     const pbpRes = await fetch(`${PBP_URL_PREFIX}${nbaGameId}.json`, {
-      headers: { 'User-Agent': 'nba-letterbox/1.0' },
+      headers: { 'User-Agent': 'know-ball/1.0' },
     });
 
     if (!pbpRes.ok) {

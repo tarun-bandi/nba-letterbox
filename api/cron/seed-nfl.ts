@@ -89,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 3. Fetch this week's NFL games from ESPN
     const espnRes = await fetch(`${ESPN_NFL_BASE}/scoreboard`, {
-      headers: { 'User-Agent': 'nba-letterbox/1.0' },
+      headers: { 'User-Agent': 'know-ball/1.0' },
     });
 
     if (!espnRes.ok) {

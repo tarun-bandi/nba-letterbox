@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ESPN game summary includes play-by-play
     const summaryRes = await fetch(
       `${ESPN_NFL_BASE}/summary?event=${gameId}`,
-      { headers: { 'User-Agent': 'nba-letterbox/1.0' } },
+      { headers: { 'User-Agent': 'know-ball/1.0' } },
     );
 
     if (!summaryRes.ok) {

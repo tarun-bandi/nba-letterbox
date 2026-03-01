@@ -194,7 +194,7 @@ function buildStatsJson(playerEntries: ParsedPlayer[]): Record<string, any> {
 
 async function scrapeGame(game: { id: string; provider_game_id: number; home_team_id: string; away_team_id: string }) {
   const url = `${ESPN_NFL_SUMMARY}?event=${game.provider_game_id}`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'nba-letterbox/1.0' } });
+  const res = await fetch(url, { headers: { 'User-Agent': 'know-ball/1.0' } });
 
   if (!res.ok) {
     console.warn(`  ESPN error for game ${game.provider_game_id}: ${res.status}`);

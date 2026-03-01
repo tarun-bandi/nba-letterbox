@@ -5,7 +5,7 @@ const ESPN_NFL_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/footb
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   try {
     const espnRes = await fetch(ESPN_NFL_SCOREBOARD, {
-      headers: { 'User-Agent': 'nba-letterbox/1.0' },
+      headers: { 'User-Agent': 'know-ball/1.0' },
     });
 
     if (!espnRes.ok) {
