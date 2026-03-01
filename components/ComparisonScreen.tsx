@@ -112,7 +112,7 @@ export default function ComparisonScreen({
   onSkip,
 }: ComparisonScreenProps) {
   return (
-    <View className="flex-1 px-4 pt-4 pb-8">
+    <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 }}>
       <Text className="text-white text-xl font-bold text-center mb-2">
         Which game was better?
       </Text>

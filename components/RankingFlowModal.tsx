@@ -267,12 +267,13 @@ export default function RankingFlowModal({
   return (
     <Modal
       visible={visible}
+      transparent
       animationType="slide"
       onRequestClose={onClose}
-      presentationStyle="fullScreen"
+      statusBarTranslucent
     >
-      <View className="flex-1 bg-surface">
-        <View className="flex-1">
+      <View style={{ flex: 1, backgroundColor: '#1a1a1a' }}>
+        <View style={{ flex: 1 }}>
           {/* Header */}
           <View className="flex-row justify-between items-center px-5 pt-14 pb-4">
             <Text className="text-white text-lg font-semibold">
@@ -288,7 +289,7 @@ export default function RankingFlowModal({
 
           {/* Loading */}
           {step === 'loading' && (
-            <View className="flex-1 items-center justify-center">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator color="#c9a84c" size="large" />
               <Text className="text-muted text-sm mt-3">Loading your rankings...</Text>
             </View>
@@ -296,7 +297,7 @@ export default function RankingFlowModal({
 
           {/* Fan confirmation */}
           {step === 'fan_confirm' && detectedFanTeamName && (
-            <View className="flex-1 px-6 justify-center">
+            <View style={{ flex: 1, paddingHorizontal: 24, justifyContent: 'center' }}>
               <View className="items-center mb-6">
                 <View className="w-14 h-14 rounded-full bg-accent/20 items-center justify-center mb-3">
                   <Heart size={28} color="#c9a84c" />
@@ -354,7 +355,7 @@ export default function RankingFlowModal({
 
           {/* Placement confirmation */}
           {step === 'placement' && insertPosition !== null && (
-            <View className="flex-1 px-6 justify-center items-center">
+            <View style={{ flex: 1, paddingHorizontal: 24, justifyContent: 'center', alignItems: 'center' }}>
               <View className="w-16 h-16 rounded-full bg-accent/20 items-center justify-center mb-4">
                 <Trophy size={32} color="#c9a84c" />
               </View>

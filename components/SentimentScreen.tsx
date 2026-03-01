@@ -18,7 +18,7 @@ const OPTIONS: { sentiment: Sentiment; label: string; sub: string; icon: typeof 
 
 export default function SentimentScreen({ onSelect, onSkip, fanTeamName }: SentimentScreenProps) {
   return (
-    <View className="flex-1 px-6 pt-4 pb-8">
+    <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 32 }}>
       {fanTeamName && (
         <View className="bg-accent/10 border border-accent/20 rounded-xl px-4 py-3 mb-4">
           <Text className="text-accent text-sm text-center">
