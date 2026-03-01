@@ -150,7 +150,6 @@ export default function FeedScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Text style={{ color: 'red', fontSize: 12, textAlign: 'center', paddingTop: 4 }}>v2</Text>
       <PageContainer className="flex-1">
       <FlatList
         data={allLogs}

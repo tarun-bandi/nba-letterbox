@@ -132,7 +132,7 @@ export default function FindFriendsSheet({ onClose }: FindFriendsSheetProps) {
             </Text>
             <Text className="text-muted text-sm text-center">
               Grant contacts permission in Settings to find friends who are
-              already on NBA Letterbox.
+              already on Know Ball.
             </Text>
           </View>
         )}
@@ -146,7 +146,7 @@ export default function FindFriendsSheet({ onClose }: FindFriendsSheetProps) {
               No Matches Found
             </Text>
             <Text className="text-muted text-sm text-center">
-              None of your contacts are on NBA Letterbox yet. Invite them to
+              None of your contacts are on Know Ball yet. Invite them to
               join!
             </Text>
           </View>

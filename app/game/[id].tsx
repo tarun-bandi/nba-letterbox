@@ -1127,7 +1127,7 @@ export default function GameDetailScreen() {
                 className="bg-surface border border-border rounded-xl w-12 py-4 items-center justify-center"
                 onPress={() => {
                   const url = gameUrl(game.id);
-                  const message = `Check out ${game.away_team.abbreviation} @ ${game.home_team.abbreviation} on NBA Letterbox\n${url}`;
+                  const message = `Check out ${game.away_team.abbreviation} @ ${game.home_team.abbreviation} on Know Ball\n${url}`;
                   RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
                 }}
                 activeOpacity={0.8}

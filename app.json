@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "NBA Letterbox",
+    "name": "Know Ball",
     "slug": "nba-letterbox",
     "scheme": "nba-letterbox",
     "version": "1.0.0",
@@ -16,7 +16,13 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tarunbandi.nbaletterbox",
-      "associatedDomains": ["applinks:nba-letterbox.vercel.app"]
+      "associatedDomains": [
+        "applinks:nba-letterbox.vercel.app",
+        "applinks:nba-letterbox.vercel.app"
+      ],
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -50,8 +56,15 @@
               "pathPrefix": "/tag"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
+      ],
+      "permissions": [
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
       ]
     },
     "web": {
@@ -71,12 +84,18 @@
       [
         "expo-contacts",
         {
-          "contactsPermission": "Allow NBA Letterbox to access your contacts to find friends on the app."
+          "contactsPermission": "Allow Know Ball to access your contacts to find friends on the app."
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d4cd43fb-f1de-4556-b002-3a3429ebccb4"
+      }
     }
   }
 }

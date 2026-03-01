@@ -29,7 +29,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let targetUserId: string | null = null;
-    let title = 'NBA Letterbox';
+    let title = 'Know Ball';
     let body = '';
     let data: Record<string, string> = {};
 

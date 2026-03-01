@@ -206,7 +206,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               onPress={() => {
                 const url = userUrl(profile.handle);
-                const message = `Follow me on NBA Letterbox!\n${url}`;
+                const message = `Follow me on Know Ball!\n${url}`;
                 RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
               }}
               className="p-2"

@@ -58,7 +58,7 @@ export default function LoginScreen() {
         {/* Logo / Header */}
         <View className="mb-12 items-center">
           <Text className="text-accent text-4xl font-bold tracking-tight">
-            NBA Letterbox
+            Know Ball
           </Text>
           <Text className="text-muted text-base mt-2">
             Your basketball journal

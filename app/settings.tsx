@@ -275,7 +275,7 @@ export default function SettingsScreen() {
             onPress={() => {
               const handle = profile?.handle ?? '';
               const url = inviteUrl(handle);
-              const message = `Join me on NBA Letterbox! Track and rate NBA games together.\n${url}`;
+              const message = `Join me on Know Ball! Track and rate NBA games together.\n${url}`;
               RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
             }}
             activeOpacity={0.7}

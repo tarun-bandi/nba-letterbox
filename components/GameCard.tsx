@@ -332,7 +332,7 @@ function GameCard({ log, showUser = false, showLoggedBadge = false }: GameCardPr
     if (!game) return;
     const snippet = log.review ? ` \u2014 "${log.review.slice(0, 80)}${log.review.length > 80 ? '...' : ''}"` : '';
     const url = gameUrl(game.id);
-    const message = `I logged ${game.away_team.abbreviation} @ ${game.home_team.abbreviation} on NBA Letterbox${snippet}\n${url}`;
+    const message = `I logged ${game.away_team.abbreviation} @ ${game.home_team.abbreviation} on Know Ball${snippet}\n${url}`;
     RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
   };
 

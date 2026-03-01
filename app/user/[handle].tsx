@@ -205,7 +205,7 @@ export default function UserProfileScreen() {
           <TouchableOpacity
             onPress={() => {
               const url = userUrl(profile.handle);
-              const message = `Check out @${profile.handle} on NBA Letterbox\n${url}`;
+              const message = `Check out @${profile.handle} on Know Ball\n${url}`;
               RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
             }}
             className="p-2"

@@ -26,7 +26,7 @@ export default function OnboardingWelcome() {
       <View className="flex-1 justify-center items-center px-8">
         <Text style={{ fontSize: 64 }} className="mb-6">🏀</Text>
         <Text className="text-white text-3xl font-bold text-center mb-3">
-          Welcome to NBA Letterbox
+          Welcome to Know Ball
         </Text>
         <Text className="text-muted text-center text-base leading-relaxed mb-2">
           Log every game you watch. Rate, review, and share your takes with other NBA fans.

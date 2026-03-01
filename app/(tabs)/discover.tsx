@@ -273,7 +273,7 @@ export default function DiscoverScreen() {
           <Users size={20} color="#c9a84c" />
           <View className="flex-1">
             <Text className="text-white font-semibold">Find Friends</Text>
-            <Text className="text-muted text-xs mt-0.5">See who from your contacts is on NBA Letterbox</Text>
+            <Text className="text-muted text-xs mt-0.5">See who from your contacts is on Know Ball</Text>
           </View>
         </TouchableOpacity>
       </View>

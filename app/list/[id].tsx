@@ -147,7 +147,7 @@ export default function ListDetailScreen() {
               className="p-2"
               onPress={() => {
                 const url = listUrl(id);
-                const message = `Check out "${list.title}" on NBA Letterbox\n${url}`;
+                const message = `Check out "${list.title}" on Know Ball\n${url}`;
                 RNShare.share(Platform.OS === 'ios' ? { message, url } : { message });
               }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
