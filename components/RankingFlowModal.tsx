@@ -267,20 +267,14 @@ export default function RankingFlowModal({
   return (
     <Modal
       visible={visible}
-      transparent
       animationType="slide"
       onRequestClose={onClose}
-      statusBarTranslucent
+      presentationStyle="fullScreen"
     >
-      <View className="flex-1 justify-end bg-black/60">
-        <View className="bg-surface rounded-t-3xl border-t border-border" style={{ maxHeight: '85%' }}>
-          {/* Handle bar */}
-          <View className="items-center pt-3 pb-1">
-            <View className="w-10 h-1 bg-border rounded-full" />
-          </View>
-
+      <View className="flex-1 bg-surface">
+        <View className="flex-1">
           {/* Header */}
-          <View className="flex-row justify-between items-center px-5 pt-2 pb-4">
+          <View className="flex-row justify-between items-center px-5 pt-14 pb-4">
             <Text className="text-white text-lg font-semibold">
               Rank This Game
             </Text>
@@ -294,7 +288,7 @@ export default function RankingFlowModal({
 
           {/* Loading */}
           {step === 'loading' && (
-            <View className="items-center justify-center py-20">
+            <View className="flex-1 items-center justify-center">
               <ActivityIndicator color="#c9a84c" size="large" />
               <Text className="text-muted text-sm mt-3">Loading your rankings...</Text>
             </View>
@@ -302,7 +296,7 @@ export default function RankingFlowModal({
 
           {/* Fan confirmation */}
           {step === 'fan_confirm' && detectedFanTeamName && (
-            <View className="px-6 pt-4 pb-8">
+            <View className="flex-1 px-6 justify-center">
               <View className="items-center mb-6">
                 <View className="w-14 h-14 rounded-full bg-accent/20 items-center justify-center mb-3">
                   <Heart size={28} color="#c9a84c" />
@@ -360,7 +354,7 @@ export default function RankingFlowModal({
 
           {/* Placement confirmation */}
           {step === 'placement' && insertPosition !== null && (
-            <View className="px-6 pt-4 pb-8 items-center">
+            <View className="flex-1 px-6 justify-center items-center">
               <View className="w-16 h-16 rounded-full bg-accent/20 items-center justify-center mb-4">
                 <Trophy size={32} color="#c9a84c" />
               </View>
