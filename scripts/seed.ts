@@ -1,5 +1,5 @@
 /**
- * NBA Letterbox — ESPN ingestion script
+ * Know Ball — ESPN ingestion script
  *
  * Usage:
  *   npm run seed                     # teams + default (2024) season
@@ -291,7 +291,7 @@ async function loadTeamMap() {
 
 async function main() {
   const { season, gamesOnly, days } = cliArgs;
-  console.log('NBA Letterbox seed script (ESPN) starting...\n');
+  console.log('Know Ball seed script (ESPN) starting...\n');
 
   if (gamesOnly) {
     await loadTeamMap();

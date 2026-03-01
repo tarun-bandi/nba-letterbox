@@ -1,4 +1,4 @@
-export const WEB_BASE = 'https://nba-letterbox.vercel.app';
+export const WEB_BASE = 'https://know-ball.vercel.app';
 
 export function gameUrl(gameId: string) {
   return `${WEB_BASE}/game/${gameId}`;

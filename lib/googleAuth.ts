@@ -9,7 +9,7 @@ const redirectTo =
   Platform.OS === 'web'
     ? window.location.origin
     : AuthSession.makeRedirectUri({
-        scheme: 'nba-letterbox',
+        scheme: 'know-ball',
         path: 'auth/callback',
       });
 
